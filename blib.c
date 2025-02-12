@@ -1,7 +1,12 @@
 #include <blib.h>
 
 size_t strlen(const char *s) {
-    panic("please implement");
+    size_t len = 0;
+    while(s[len] != '\0'){
+        len++;
+    }
+
+    return len;
 }
 
 char *strcpy(char *dst, const char *src) {
@@ -43,11 +48,24 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 char *strcat(char *dst, const char *src) {
-    panic("please implement");
+    size_t dst_len = strlen(dst);
+    for(size_t i=0; src[i] != '\0'; i++){
+        dst[dst_len++] = src[i];
+    }
+    dst[dst_len] = '\0';
+
+    return dst;
 }
 
 char *strncat(char *dst, const char *src, size_t n){
-    panic("please implement");
+    size_t dst_len = strlen(dst);
+    size_t i = 0;
+    while(src[i] != '\0' && i < n){
+        dst[dst_len++] = src[i++];
+    }
+
+    dst[dst_len] = '\0';
+    return dst;
 }
 
 char *strchr(const char *str, int character){
@@ -62,7 +80,23 @@ char *strchr(const char *str, int character){
 }
 
 char* strsep(char** stringp, const char* delim){
-    panic("please implement");
+    if(*stringp == NULL) return NULL;
+    char* fir = NULL;
+    for(size_t i=0; delim[i] != '\0'; ++i){
+        char* _find = strchr(*stringp, delim[i]);
+        if(_find != NULL){
+            fir = fir == NULL ? _find : (fir <= _find ? fir : _find);
+        }
+    }
+
+    char* ret = *stringp;
+    if(fir == NULL){
+        *stringp = NULL;
+    }else{
+        *stringp = fir + 1;
+        *fir = '\0';
+    }
+    return ret;
 }
 
 
