@@ -1,5 +1,6 @@
 mkdir output
-echo "" > testRes.txt
+rm testRes.txt
+touch testRes.txt
 
 dd=$(cd ./dataSet && ls | grep '*.in')
 cc=1
