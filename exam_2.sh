@@ -1,1 +1,1 @@
-grep 'hello' ./origin/basic.c
+grep -w 'hello' ./origin/basic.c
