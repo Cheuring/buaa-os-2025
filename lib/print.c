@@ -23,7 +23,7 @@ void vprintfmt(fmt_callback_t out, void *data, const char *fmt, va_list ap) {
 		while((*fmt) != '\0' && (*fmt) != '%') ++fmt;
 		/* flush the string found so far */
 		/* Exercise 1.4: Your code here. (2/8) */
-		print_str(out, data, fmt_start, fmt - fmt_start, ladjust);
+		out(data, fmt_start, fmt - fmt_start);
 		/* check "are we hitting the end?" */
 		/* Exercise 1.4: Your code here. (3/8) */
 		if((*fmt) == '\0') break;
