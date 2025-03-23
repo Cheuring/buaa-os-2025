@@ -17,3 +17,5 @@ __pycache__
 *.pyc
 *.pyo
 .qemu_log
+.vimrc
+compile_commands.json
