@@ -187,6 +187,7 @@ static int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte) {
 
 	/* Step 1: Get the corresponding page directory entry. */
 	/* Exercise 2.6: Your code here. (1/3) */
+	pgdir_entryp = pgdir + PDX(va);
 
 	/* Step 2: If the corresponding page table is not existent (valid) then:
 	 *   * If parameter `create` is set, create one. Set the permission bits 'PTE_C_CACHEABLE |
@@ -195,9 +196,20 @@ static int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte) {
 	 *   * Otherwise, assign NULL to '*ppte' and return 0.
 	 */
 	/* Exercise 2.6: Your code here. (2/3) */
+	if(((*pgdir_entryp) & PTE_V) == 0){
+		if(create){
+			try(page_alloc(&pp));
+			*pgdir_entryp = page2pa(pp) | PTE_C_CACHEABLE | PTE_V;
+			pp->pp_ref++;
+		}else{
+			*ppte = NULL;
+			return 0;
+		}
+	}
 
 	/* Step 3: Assign the kernel virtual address of the page table entry to '*ppte'. */
 	/* Exercise 2.6: Your code here. (3/3) */
+	*ppte = (Pte*)(KADDR(PTE_ADDR(*pgdir_entryp))) + PTX(va);
 
 	return 0;
 }
@@ -232,14 +244,18 @@ int page_insert(Pde *pgdir, u_int asid, struct Page *pp, u_long va, u_int perm) 
 
 	/* Step 2: Flush TLB with 'tlb_invalidate'. */
 	/* Exercise 2.7: Your code here. (1/3) */
+	tlb_invalidate(asid, va);
 
 	/* Step 3: Re-get or create the page table entry. */
 	/* If failed to create, return the error. */
 	/* Exercise 2.7: Your code here. (2/3) */
+	try(pgdir_walk(pgdir, va, 1, &pte));
 
 	/* Step 4: Insert the page to the page table entry with 'perm | PTE_C_CACHEABLE | PTE_V'
 	 * and increase its 'pp_ref'. */
 	/* Exercise 2.7: Your code here. (3/3) */
+	*pte = page2pa(pp) | perm | PTE_C_CACHEABLE | PTE_V;
+	pp->pp_ref++;
 
 	return 0;
 }
