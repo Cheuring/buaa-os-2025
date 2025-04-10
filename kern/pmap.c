@@ -524,3 +524,45 @@ void page_check(void) {
 
 	printk("page_check() succeeded!\n");
 }
+/*
+u_int helper(Pde* pgdir, u_int asid, u_int pdx, u_int low, u_int up, u_int perm_mask){
+
+}
+
+u_int page_conditional_remove(Pde *pgdir, u_int asid, u_int perm_mask, u_long begin_va, u_long end_va){
+	u_int ans = 0;
+	if(begin_va >= end_va){
+		return 0;
+	}
+	
+	u_int left = PDX(begin_va), right = PDX(end_va), low = PTX(begin_va), up = PTX(end_va);
+	if(left == right){
+		ans += helper(pgdir, asid, left, low, up, perm_mask);
+		return ans;
+	}
+
+	ans += helper(pgdir, asid, left, low, 1024, perm_mask);
+	for(; left < right; ++left){
+
+	}
+
+}
+*/
+
+u_int page_conditional_remove(Pde *pgdir, u_int asid, u_int perm_mask, u_long begin_va, u_long end_va){
+	u_int ans = 0;
+	struct Page *pp;
+	Pte *pte;
+	for(; begin_va < end_va; begin_va += PAGE_SIZE){
+		pp = page_lookup(pgdir, begin_va, &pte);
+		if(pp == NULL) continue;
+
+		if((*pte & perm_mask)){
+			page_decref(pp);
+			*pte = 0;
+			tlb_invalidate(asid, begin_va);
+			++ans;
+		}
+	}
+	return ans;
+}

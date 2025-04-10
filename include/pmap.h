@@ -75,5 +75,6 @@ extern struct Page *pages;
 
 void physical_memory_manage_check(void);
 void page_check(void);
+u_int page_conditional_remove(Pde *pgdir, u_int asid, u_int perm_mask, u_long begin_va, u_long end_va);
 
 #endif /* _PMAP_H_ */
