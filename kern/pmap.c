@@ -590,6 +590,7 @@ void free(void *p) {
 
 	struct MBlock* temp = (struct MBlock*)(p - MBLOCK_SIZE);
 	if(temp->ptr != p) return;
+	if(temp->free) return;
 
 	struct MBlock *pre = MBLOCK_PREV(temp, mb_link), *next = LIST_NEXT(temp, mb_link);
 	temp->free = 1;
@@ -597,12 +598,14 @@ void free(void *p) {
 		temp->size += next->size + MBLOCK_SIZE;
 		temp->ptr = (void*)temp->data;
 		next->ptr = NULL;
+		next->free = 0;
 		LIST_REMOVE(next, mb_link);
 	}
 	if(pre && pre->free){
 		pre->size += temp->size + MBLOCK_SIZE;
 		pre->ptr = (void*)pre->data;
 		temp->ptr = NULL;
+		temp->free = 0;
 		LIST_REMOVE(temp, mb_link);
 	}
 
