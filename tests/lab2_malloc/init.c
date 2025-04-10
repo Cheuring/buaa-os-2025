@@ -1,3 +1,4 @@
+#include "printk.h"
 #include <malloc.h>
 #include <pmap.h>
 
@@ -74,9 +75,11 @@ void rem(u_int a, u_int b) {
 
 void malloc_test() {
 	void *p1 = malloc(0x100000);
+	printk("%x\n", p1);
 	assert(check((u_int)p1, (u_int)p1 + 0x100000));
 
 	void *p2 = malloc(0x100000);
+	printk("%x\n", p2);
 	assert(check((u_int)p2, (u_int)p2 + 0x100000));
 
 	void *p3 = malloc(0x100000);
