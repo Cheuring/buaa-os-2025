@@ -555,7 +555,7 @@ void malloc_init() {
 void *malloc(size_t size) {
 	/* Your Code Here (1/2) */
 	size = ROUND(size, 8);
-	struct MBlock* temp = LIST_FIRST(&mblock_list); 
+	struct MBlock* temp = (struct MBlock*)HEAP_BEGIN;
 	while(temp){
 		if(!temp->free || temp->size < size){
 			temp = LIST_NEXT(temp, mb_link);
@@ -593,14 +593,16 @@ void free(void *p) {
 
 	struct MBlock *pre = MBLOCK_PREV(temp, mb_link), *next = LIST_NEXT(temp, mb_link);
 	temp->free = 1;
-	if(next->free){
+	if(next && next->free){
 		temp->size += next->size + MBLOCK_SIZE;
 		temp->ptr = (void*)temp->data;
+		next->ptr = NULL;
 		LIST_REMOVE(next, mb_link);
 	}
-	if(pre->free){
+	if(pre && pre->free){
 		pre->size += temp->size + MBLOCK_SIZE;
 		pre->ptr = (void*)pre->data;
+		temp->ptr = NULL;
 		LIST_REMOVE(temp, mb_link);
 	}
 
