@@ -580,6 +580,7 @@ void *malloc(size_t size) {
 	LIST_INSERT_AFTER(temp, next, mb_link);
 	temp->free = 0;
 	temp->size = size;
+	temp->ptr = (void*)temp->data;
 	return temp->data;
 }
 
@@ -589,6 +590,7 @@ void free(void *p) {
 		return;
 
 	struct MBlock* temp = (struct MBlock*)(p - MBLOCK_SIZE);
+	if(temp->ptr != temp->data) return;
 	if(temp->ptr != p) return;
 	if(temp->free) return;
 
