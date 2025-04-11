@@ -1,3 +1,5 @@
+#include "queue.h"
+#include "types.h"
 #include <bitops.h>
 #include <env.h>
 #include <malta.h>
@@ -523,4 +525,90 @@ void page_check(void) {
 	page_free(pa2page(PADDR(boot_pgdir)));
 
 	printk("page_check() succeeded!\n");
+}
+
+
+#include <malloc.h>
+
+struct MBlock_list mblock_list;
+
+void malloc_init() {
+
+	printk("malloc_init begin\n");
+
+	LIST_INIT(&mblock_list);
+
+	struct MBlock *heap_begin = (struct MBlock*) HEAP_BEGIN;
+
+	printk("heap_begin: 0x%X\n", heap_begin);
+
+	heap_begin->size = HEAP_SIZE - MBLOCK_SIZE;
+	heap_begin->ptr = (void*) heap_begin->data;
+	heap_begin->free = 1;
+
+	LIST_INSERT_HEAD(&mblock_list, heap_begin, mb_link);
+
+	printk("malloc_init end\n");
+
+}
+
+void *malloc(size_t size) {
+	/* Your Code Here (1/2) */
+	size = ROUND(size, 8);
+	struct MBlock* temp = (struct MBlock*)HEAP_BEGIN;
+	while(temp){
+		if(!temp->free || temp->size < size){
+			temp = LIST_NEXT(temp, mb_link);
+			continue;
+		}
+
+		break;
+	}
+	if(temp == NULL){
+		return NULL;
+	}
+
+	if(temp->size < size + MBLOCK_SIZE + 8){
+		temp->free = 0;
+		return temp->data;
+	}
+
+	struct MBlock* next = (struct MBlock *)(temp->ptr + size);
+	next->size = temp->size - size - MBLOCK_SIZE;
+	next->free = 1;
+	next->ptr = (void*)next->data;
+	LIST_INSERT_AFTER(temp, next, mb_link);
+	temp->free = 0;
+	temp->size = size;
+	temp->ptr = (void*)temp->data;
+	return temp->data;
+}
+
+void free(void *p) {
+	/* Your Code Here (2/2) */
+	if(!(p >= (void*)HEAP_BEGIN + MBLOCK_SIZE && p <= (void*)HEAP_BEGIN + HEAP_SIZE))
+		return;
+
+	struct MBlock* temp = (struct MBlock*)(p - MBLOCK_SIZE);
+	if(temp->ptr != temp->data) return;
+	if(temp->ptr != p) return;
+	if(temp->free) return;
+
+	struct MBlock *pre = MBLOCK_PREV(temp, mb_link), *next = LIST_NEXT(temp, mb_link);
+	temp->free = 1;
+	if(next && next->free){
+		temp->size += next->size + MBLOCK_SIZE;
+		temp->ptr = (void*)temp->data;
+		next->ptr = NULL;
+		next->free = 0;
+		LIST_REMOVE(next, mb_link);
+	}
+	if(pre != &mblock_list && pre->free){
+		pre->size += temp->size + MBLOCK_SIZE;
+		pre->ptr = (void*)pre->data;
+		temp->ptr = NULL;
+		temp->free = 0;
+		LIST_REMOVE(temp, mb_link);
+	}
+
 }
