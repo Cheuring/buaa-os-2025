@@ -39,7 +39,17 @@ struct Env {
 
 	// Lab 6 scheduler counts
 	u_int env_runs; // number of times we've been env_run'ed
+	
+	LIST_ENTRY(Env) env_edf_sched_link;
+	u_int env_edf_runtime;
+	u_int env_edf_period;
+	u_int env_period_deadline;
+	u_int env_runtime_left;
 };
+
+LIST_HEAD(Env_edf_sched_list, Env);
+extern struct Env_edf_sched_list env_edf_sched_list;
+struct Env* env_create_edf(const void* binary, size_t size, int runtime, int period);
 
 LIST_HEAD(Env_list, Env);
 TAILQ_HEAD(Env_sched_list, Env);

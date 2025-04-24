@@ -1,3 +1,4 @@
+#include "queue.h"
 #include <asm/cp0regdef.h>
 #include <elf.h>
 #include <env.h>
@@ -13,6 +14,8 @@ static struct Env_list env_free_list; // Free list
 
 // Invariant: 'env' in 'env_sched_list' iff. 'env->env_status' is 'RUNNABLE'.
 struct Env_sched_list env_sched_list; // Runnable list
+
+struct Env_edf_sched_list env_edf_sched_list;
 
 static Pde *base_pgdir;
 
@@ -145,6 +148,7 @@ void env_init(void) {
 	 * 'TAILQ_INIT'. */
 	/* Exercise 3.1: Your code here. (1/2) */
 	LIST_INIT(&env_free_list);
+	LIST_INIT(&env_edf_sched_list);
 	TAILQ_INIT(&env_sched_list);
 	/* Step 2: Traverse the elements of 'envs' array, set their status to 'ENV_FREE' and insert
 	 * them into the 'env_free_list'. Make sure, after the insertion, the order of envs in the
@@ -361,6 +365,20 @@ struct Env *env_create(const void *binary, size_t size, int priority) {
 	/* Exercise 3.7: Your code here. (3/3) */
 	load_icode(e, binary, size);
 	TAILQ_INSERT_HEAD(&env_sched_list, e, env_sched_link);
+	return e;
+}
+
+struct Env* env_create_edf(const void* binary, size_t size, int runtime, int period){
+	struct Env *e;
+	env_alloc(&e, 0);
+
+	e->env_edf_period = period;
+	e->env_edf_runtime = runtime;
+	e->env_period_deadline = 0;
+	e->env_status = ENV_RUNNABLE;
+
+	load_icode(e, binary, size);
+	LIST_INSERT_HEAD(&env_edf_sched_list, e, env_edf_sched_link);
 	return e;
 }
 

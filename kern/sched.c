@@ -1,3 +1,4 @@
+#include "queue.h"
 #include <env.h>
 #include <pmap.h>
 #include <printk.h>
@@ -14,9 +15,9 @@
  *   2. Use variable 'env_sched_list', which contains and only contains all runnable envs.
  *   3. You shouldn't use any 'return' statement because this function is 'noreturn'.
  */
-void schedule(int yield) {
+void schedule_rr(int yield) {
 	static int count = 0; // remaining time slices of current env
-	struct Env *e = curenv;
+	static struct Env* e = NULL;
 
 	/* We always decrease the 'count' by 1.
 	 *
@@ -47,4 +48,36 @@ void schedule(int yield) {
 		count = e->env_pri;
 	}
 	env_run(e);
+}
+
+
+void schedule(int yield){
+	static int clock = -1;
+	clock++;
+
+	struct Env *temp, *earliest = NULL;
+	LIST_FOREACH(temp, &env_edf_sched_list, env_edf_sched_link){
+		if(clock == temp->env_period_deadline){
+			temp->env_period_deadline += temp->env_edf_period;
+			temp->env_runtime_left = temp->env_edf_runtime;
+		}
+	}
+
+	LIST_FOREACH(temp, &env_edf_sched_list, env_edf_sched_link){
+		if(temp->env_runtime_left > 0){
+			if(earliest == NULL ||
+					temp->env_period_deadline < earliest->env_period_deadline ||
+					(temp->env_period_deadline == earliest->env_period_deadline && temp->env_id < earliest->env_id)){
+				earliest = temp;
+			}
+		}
+	}
+
+	if(earliest == NULL){
+		schedule_rr(yield);
+		return;
+	}
+
+	earliest->env_runtime_left--;
+	env_run(earliest);
 }
