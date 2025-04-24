@@ -29,6 +29,8 @@ timer_irq:
 END(handle_int)
 
 BUILD_HANDLER tlb do_tlb_refill
+BUILD_HANDLER adel do_adel
+BUILD_HANDLER ades do_ades
 
 #if !defined(LAB) || LAB >= 4
 BUILD_HANDLER mod do_tlb_mod
