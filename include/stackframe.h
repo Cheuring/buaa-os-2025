@@ -2,6 +2,22 @@
 #include <mmu.h>
 #include <trap.h>
 
+/*
+ * Number   Name        Purpose
+ * $0       $0          Always 0
+ * $1       $at         Assembler Temporary used by the assembler in expanding pseudo‑ops.
+ * $2–$3    $v0–$v1     Returned value registers of a subroutine; if the return is one word only $v0 is significant.
+ * $4–$7    $a0–$a3     Argument registers; contain the first four arguments for a subroutine call.
+ * $8–$15,
+ * $24–$25  $t0–$t9     Temporary registers.
+ * $16–$23  $s0–$s7     Saved registers.
+ * $26–$27  $k0–$k1     Kernel reserved registers. DO NOT USE.
+ * $28      $gp         Global pointer used for addressing static global variables.
+ * $29      $sp         Stack pointer.
+ * $30      $fp (or $s8) Frame pointer if needed; otherwise can be used as another saved register.
+ * $31      $ra         Return address register for subroutine calls.
+ */
+
 // clang-format off
 .macro SAVE_ALL
 .set noat
