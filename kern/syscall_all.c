@@ -5,8 +5,97 @@
 #include <printk.h>
 #include <sched.h>
 #include <syscall.h>
+#include <shm.h>
 
 extern struct Env *curenv;
+struct Shm shm_pool[N_SHM];
+
+int sys_shm_new(u_int npage){
+	if(npage == 0 || npage > N_SHM_PAGE){
+		return -E_SHM_INVALID;
+	}
+
+	struct Shm* shm = NULL;
+	for(int i=0; i<N_SHM; ++i){
+		if(shm_pool[i].open == 0){
+			shm = &shm_pool[i];
+			break;
+		}
+	}
+
+	if(shm == NULL){
+		return -E_SHM_INVALID;
+	}
+
+	for(int i=0; i<npage; ++i){
+		if(page_alloc(&shm->pages[i]) != 0){
+			for(int j=0; j<i; ++j){
+				page_free(shm->pages[j]);
+			}
+
+			return -E_NO_MEM;
+		}
+	}
+	shm->open = 1;
+	shm->npage = npage;
+
+	return shm - shm_pool;
+}
+
+int sys_shm_bind(int key, u_int va, u_int perm){
+	if(key < 0 || key >= N_SHM){
+		return -E_SHM_INVALID;
+	}
+
+	if(shm_pool[key].open == 0){
+		return -E_SHM_NOT_OPEN;
+	}
+
+	struct Shm *shm = shm_pool + key;
+	va = ROUNDDOWN(va, PAGE_SIZE);
+	for(int i=0; i<shm->npage; ++i){
+		try(page_insert(curenv->env_pgdir, curenv->env_asid, shm->pages[i], va + PAGE_SIZE * i, perm) < 0);
+	}
+
+	return 0;
+}
+
+int sys_shm_unbind(int key, u_int va){
+	if(key < 0 || key >= N_SHM){
+		return -E_SHM_INVALID;
+	}
+
+	if(shm_pool[key].open == 0){
+		return -E_SHM_NOT_OPEN;
+	}
+
+	struct Shm *shm = shm_pool + key;
+	va = ROUNDDOWN(va, PAGE_SIZE);
+	for(int i=0; i<shm->npage; ++i){
+		page_remove(curenv->env_pgdir, curenv->env_asid, va + PAGE_SIZE * i);
+	}
+
+	return 0;
+}
+
+int sys_shm_free(int key){
+	if(key < 0 || key >= N_SHM){
+		return -E_SHM_INVALID;
+	}
+
+	if(shm_pool[key].open == 0){
+		return -E_SHM_NOT_OPEN;
+	}
+
+	struct Shm * shm = shm_pool + key;
+	for(int i=0; i<shm->npage; ++i){
+		page_decref(shm->pages[i]);
+	}
+	shm->open = 0;
+	shm->npage = 0;
+
+	return 0;
+}
 
 /* Overview:
  * 	This function is used to print a character on screen.
@@ -498,6 +587,10 @@ void *syscall_table[MAX_SYSNO] = {
     [SYS_cgetc] = sys_cgetc,
     [SYS_write_dev] = sys_write_dev,
     [SYS_read_dev] = sys_read_dev,
+	[SYS_shm_new] = sys_shm_new,
+	[SYS_shm_bind] = sys_shm_bind,
+	[SYS_shm_unbind] = sys_shm_unbind,
+	[SYS_shm_free] = sys_shm_free,
 };
 
 /* Overview:

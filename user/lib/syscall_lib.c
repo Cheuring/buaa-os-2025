@@ -74,3 +74,19 @@ int syscall_read_dev(void *va, u_int dev, u_int size) {
 	/* Exercise 5.2: Your code here. (2/2) */
 
 }
+
+int syscall_shm_new(u_int npage){
+	return msyscall(SYS_shm_new, npage);
+}
+
+int syscall_shm_bind(int key, u_int va, u_int perm){
+	return msyscall(SYS_shm_bind, key, va, perm);
+}
+
+int syscall_shm_unbind(int key, u_int va){
+	return msyscall(SYS_shm_unbind, key, va);
+}
+
+int syscall_shm_free(int key){
+	return msyscall(SYS_shm_free, key);
+}
