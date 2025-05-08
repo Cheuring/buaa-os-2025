@@ -38,6 +38,9 @@ int sys_shm_new(u_int npage){
 	}
 	shm->open = 1;
 	shm->npage = npage;
+	for(int i=0; i<npage; ++i){
+		shm->pages[i]->pp_ref++;
+	}
 
 	return shm - shm_pool;
 }
