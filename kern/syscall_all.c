@@ -452,8 +452,42 @@ int sys_cgetc(void) {
  *	|  IDE disk  | 0x180001f0 | 0x8    |
  *	* ---------------------------------*
  */
+int valid_addr_space_num = 2;
+unsigned int valid_addr_start[2] = {0x180003f8, 0x180001f0};
+unsigned int valid_addr_end[2] = {0x180003f8 + 0x20, 0x180001f8};
+
+static inline int is_illegal_dev_range(u_long pa, u_long len) {
+	if ((pa % 4 != 0 && len != 1 && len != 2) || (pa % 2 != 0 && len != 1)) {
+		return 1;
+	}
+	int i;
+	u_int target_start = pa;
+	u_int target_end = pa + len;
+	for (i = 0; i < valid_addr_space_num; i++) {
+		if (target_start >= valid_addr_start[i] && target_end <= valid_addr_end[i]) {
+			return 0;
+		}
+	}
+	return 1;
+}
 int sys_write_dev(u_int va, u_int pa, u_int len) {
 	/* Exercise 5.1: Your code here. (1/2) */
+	if(is_illegal_va_range(va, len) || is_illegal_dev_range(pa, len) || va % len != 0)
+		return -E_INVAL;
+
+	switch (len) {
+	case 1:
+		iowrite8(*(uint8_t*)va, pa);
+		break;
+	case 2:
+		iowrite16(*(uint16_t*)va, pa);
+		break;
+	case 4:
+		iowrite32(*(uint32_t*)va, pa);
+		break;
+	default:
+		return -E_INVAL;
+	}
 
 	return 0;
 }
@@ -475,6 +509,22 @@ int sys_write_dev(u_int va, u_int pa, u_int len) {
  */
 int sys_read_dev(u_int va, u_int pa, u_int len) {
 	/* Exercise 5.1: Your code here. (2/2) */
+	if(is_illegal_va_range(va, len) || is_illegal_dev_range(pa, len) || va % len != 0)
+		return -E_INVAL;
+
+	switch (len) {
+	case 1:
+		*(uint8_t *)va = ioread8(pa);
+		break;
+	case 2:
+		*(uint16_t *)va = ioread16(pa);
+		break;
+	case 4:
+		*(uint32_t *)va = ioread32(pa);
+		break;
+	default:
+		return -E_INVAL;
+	}
 
 	return 0;
 }
