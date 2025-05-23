@@ -20,3 +20,5 @@ __pycache__
 .qemu_log
 .vimrc
 compile_commands.json
+
+tests
