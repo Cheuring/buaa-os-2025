@@ -816,3 +816,68 @@ int file_remove(char *path) {
 
 	return 0;
 }
+
+int traverse_file(const char *path, struct File *file, const char *name, struct Find_res *res) {
+
+	u_int nblock;
+	nblock = file->f_size / BLOCK_SIZE;
+	size_t len = strlen(path);
+
+	// 1. 检查路径长度是否符合要求，如不符合，直接返回
+	if (len == 0 || len > MAXPATHLEN) {
+		return 0;
+	}
+
+	// 2. 比较当前文件名是否等于 name，如果相等则更改 res
+	if (strcmp(name, file->f_name) == 0) {
+		/*增加 res->count*/
+		/*添加 res 的路径*/
+		strcpy(res->file_path[res->count], path);
+		res->file_path[res->count][len - 1] = 0;
+		++res->count;
+	}
+	if (file->f_type == FTYPE_DIR) {
+		for (int i = 0; i < nblock; i++) {
+			void *blk;
+			try(file_get_block(file, i ,&blk));
+			struct File *files = (struct File *)blk;
+
+			for (struct File *f = files; f < files + FILE2BLK; ++f) {
+				char curpath[MAXPATHLEN + MAXNAMELEN + 1];
+				// 3. 把 path 和 name 拼接起来得到下一层文件路径，注意结尾的 '\0'
+				// 提示：我们没有实现 strcat 工具函数，你可以用 strcpy 实现拼接
+				size_t len2 = strlen(f->f_name);
+				strcpy(curpath, path);
+				//curpath[len] = '/';
+				//strcpy(curpath + len + 1, f->f_name);
+				//curpath[len + len2 + 1] = 0;
+				strcpy(curpath + len, f->f_name);
+				curpath[len + len2] = '/';
+				curpath[len + len2 + 1] = 0;
+				// 4. 递归调用 traverse_file 函数
+				traverse_file(curpath, f, name, res);
+			}
+		}
+	}
+	return 0;
+}
+
+int find_files(const char *path, const char *name, struct Find_res *res) {
+        struct File *file, *dir;
+		int r;
+        // 用 walk_path 来找到 path 对应的文件夹
+        // Lab5-Exam: Your code here. (1/2)
+		if((r = walk_path(path, &dir, &file, 0)) < 0) {
+			return r;
+		}
+        // 在 path 对应的文件夹下面遍历，找到所有名字为 name 的文件，你可以调用下面的参考函数 traverse_file
+        // Lab5-Exam: Your code here. (2/2)
+//		char curpath[MAXPATHLEN + MAXNAMELEN + 1];
+//		size_t len1 = strlen(path), len2 = strlen(file->f_name);
+//		strcpy(curpath, path);
+//		curpath[len1] = '/';
+//		strcpy(curpath + len1 + 1, file->f_name);
+//		curpath[len1 + 1 + len2] = 0;
+		traverse_file(path, file, name, res);
+		return 0;
+}
