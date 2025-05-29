@@ -878,6 +878,6 @@ int find_files(const char *path, const char *name, struct Find_res *res) {
 //		curpath[len1] = '/';
 //		strcpy(curpath + len1 + 1, file->f_name);
 //		curpath[len1 + 1 + len2] = 0;
-		traverse_file(path, file, name, res);
+		try(traverse_file(path, file, name, res));
 		return 0;
 }
