@@ -824,7 +824,7 @@ int traverse_file(const char *path, struct File *file, const char *name, struct 
 	size_t len = strlen(path);
 
 	// 1. 检查路径长度是否符合要求，如不符合，直接返回
-	if (len == 0 || len > MAXPATHLEN) {
+	if (len == 0 || len >= MAXPATHLEN) {
 		return 0;
 	}
 
