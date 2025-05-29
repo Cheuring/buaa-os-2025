@@ -119,6 +119,16 @@ int remove(const char *path);
 int ftruncate(int fd, u_int size);
 int sync(void);
 
+int fsipc_key_set(u_int fileid);
+int fsipc_key_unset();
+int fsipc_key_isset();
+
+int fskey_set(int fd);
+int fskey_unset();
+int fskey_isset();
+
+#define O_ENCRYPT 0x0010
+
 #define user_assert(x)                                                                             \
 	do {                                                                                       \
 		if (!(x))                                                                          \
