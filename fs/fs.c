@@ -855,7 +855,7 @@ int traverse_file(const char *path, struct File *file, const char *name, struct 
 				curpath[len + len2] = '/';
 				curpath[len + len2 + 1] = 0;
 				// 4. 递归调用 traverse_file 函数
-				traverse_file(curpath, f, name, res);
+				try(traverse_file(curpath, f, name, res));
 			}
 		}
 	}
