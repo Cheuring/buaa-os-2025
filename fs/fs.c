@@ -824,7 +824,7 @@ int traverse_file(const char *path, struct File *file, const char *name, struct 
 	size_t len = strlen(path);
 
 	// 1. 检查路径长度是否符合要求，如不符合，直接返回
-	if (len == 0 || len >= MAXPATHLEN) {
+	if (len == 0 || len > MAXPATHLEN) {
 		return 0;
 	}
 
@@ -833,7 +833,8 @@ int traverse_file(const char *path, struct File *file, const char *name, struct 
 		/*增加 res->count*/
 		/*添加 res 的路径*/
 		strcpy(res->file_path[res->count], path);
-		res->file_path[res->count][len - 1] = 0;
+		if(res->file_path[res->count][len - 1] == '/')
+			res->file_path[res->count][len - 1] = 0;
 		++res->count;
 	}
 	if (file->f_type == FTYPE_DIR) {
@@ -872,12 +873,6 @@ int find_files(const char *path, const char *name, struct Find_res *res) {
 		}
         // 在 path 对应的文件夹下面遍历，找到所有名字为 name 的文件，你可以调用下面的参考函数 traverse_file
         // Lab5-Exam: Your code here. (2/2)
-//		char curpath[MAXPATHLEN + MAXNAMELEN + 1];
-//		size_t len1 = strlen(path), len2 = strlen(file->f_name);
-//		strcpy(curpath, path);
-//		curpath[len1] = '/';
-//		strcpy(curpath + len1 + 1, file->f_name);
-//		curpath[len1 + 1 + len2] = 0;
 		try(traverse_file(path, file, name, res));
 		return 0;
 }
