@@ -833,8 +833,11 @@ int traverse_file(const char *path, struct File *file, const char *name, struct 
 		/*增加 res->count*/
 		/*添加 res 的路径*/
 		strcpy(res->file_path[res->count], path);
-		if(res->file_path[res->count][len - 1] == '/')
+		if(file->f_type != FTYPE_DIR && res->file_path[res->count][len - 1] == '/')
 			res->file_path[res->count][len - 1] = 0;
+		if(strlen(res->file_path[res->count]) > MAXPATHLEN){
+			return 0;
+		}
 		++res->count;
 	}
 	if (file->f_type == FTYPE_DIR) {
