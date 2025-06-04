@@ -3,6 +3,7 @@
 
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
+#define DEL 0x7f
 
 /* Overview:
  *   Parse the next token from the string at s.
@@ -190,27 +191,109 @@ void runcmd(char *s) {
 }
 
 void readline(char *buf, u_int n) {
-	int r;
-	for (int i = 0; i < n; i++) {
-		if ((r = read(0, buf + i, 1)) != 1) {
+	int r, i = 0;
+	char c;
+	static char backbuf[1024];
+	int backbuf_i = 0;
+	static enum {NORMAL, GOT_ESC, GOT_BRACKET} state = NORMAL;
+
+	while (i + backbuf_i < n - 1) {
+		if ((r = read(0, &c, 1)) != 1) {
 			if (r < 0) {
 				debugf("read error: %d\n", r);
 			}
 			exit();
 		}
-		if (buf[i] == '\b' || buf[i] == 0x7f) {
-			if (i > 0) {
-				i -= 2;
-			} else {
-				i = -1;
+
+back:
+		if(state == NORMAL){
+			switch (c) {
+			case '\b':
+			case DEL:
+				// delete
+				if(i > 0){
+					i--;
+					printf("\b");
+					for(int k = backbuf_i - 1; k >= 0; k--){
+						if(backbuf[k] < 32 || backbuf[k] >= 127) {
+							printf("?");
+						}else{
+							printf("%c", backbuf[k]);
+						}
+					}
+					printf(" ");
+
+					for(int k = 0; k < backbuf_i + 1; k++){
+						printf("\b");
+					}
+				}
+				break;
+	
+			case '\r':
+			case '\n':
+				// new line
+				printf("\n");
+				for(int k = backbuf_i - 1; k >= 0; k--) {
+					buf[i++] = backbuf[k];
+				}
+				buf[i] = 0;
+				return;
+	
+			case 27: // escape
+				state = GOT_ESC;
+				break;
+	
+			default:
+				buf[i++] = c;
+				if (c < 32 || c >= 127) {
+					// non-printable character
+					printf("?");
+				}else{
+					printf("%c", c);
+				}
 			}
-			if (buf[i] != '\b') {
-				printf("\b");
+		}else if(state == GOT_ESC){
+			if(c == '['){
+				state = GOT_BRACKET;
+			}else{
+				state = NORMAL;
+				// not a bracket, go back
+				goto back;
 			}
-		}
-		if (buf[i] == '\r' || buf[i] == '\n') {
-			buf[i] = 0;
-			return;
+		}else{
+			switch (c) {
+			case 'A':
+				// up arrow
+				// stage command
+
+				// get previous command
+
+				break;
+			case 'B':
+				// down arrow
+				// stage command
+
+				// get next command
+
+				break;
+			case 'C':
+				// right arrow
+				printf("\033[C");
+				// move cursor right
+				break;
+			case 'D':
+				// left arrow
+				printf("\033[D");
+				// move cursor left
+				if (i > 0) {
+					backbuf[backbuf_i++] = buf[--i];
+				}
+				break;
+			default:
+				state = NORMAL;
+				goto back;
+			}
+			state = NORMAL;
 		}
 	}
 	debugf("line too long\n");

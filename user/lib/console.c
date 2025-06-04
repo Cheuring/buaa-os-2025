@@ -51,11 +51,11 @@ int cons_read(struct Fd *fd, void *vbuf, u_int n, u_int offset) {
 		syscall_yield();
 	}
 
-	if (c != '\r') {
-		debugf("%c", c);
-	} else {
-		debugf("\n");
-	}
+	// if (c != '\r') {
+	// 	debugf("%c", c);
+	// } else {
+	// 	debugf("\n");
+	// }
 	if (c < 0) {
 		return c;
 	}
