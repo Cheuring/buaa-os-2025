@@ -251,6 +251,18 @@ back:
 				}else{
 					printf("%c", c);
 				}
+
+				for(int k = backbuf_i - 1; k >= 0; k--){
+					if(backbuf[k] < 32 || backbuf[k] >= 127) {
+						printf("?");
+					}else{
+						printf("%c", backbuf[k]);
+					}
+				}
+
+				for(int k = 0; k < backbuf_i; k++){
+					printf("\b");
+				}
 			}
 		}else if(state == GOT_ESC){
 			if(c == '['){
@@ -278,14 +290,17 @@ back:
 				break;
 			case 'C':
 				// right arrow
-				printf("\033[C");
 				// move cursor right
+				if (backbuf_i > 0) {
+					printf("\033[C");
+					buf[i++] = backbuf[--backbuf_i];
+				}
 				break;
 			case 'D':
 				// left arrow
-				printf("\033[D");
 				// move cursor left
 				if (i > 0) {
+					printf("\033[D");
 					backbuf[backbuf_i++] = buf[--i];
 				}
 				break;
