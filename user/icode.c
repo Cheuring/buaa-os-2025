@@ -18,6 +18,11 @@ int main() {
 	debugf("icode: close /motd\n");
 	close(fd);
 
+	debugf("icode: chdir /\n");
+	if ((r = chdir("/")) < 0) {
+		user_panic("icode: chdir /: %d", r);
+	}
+	
 	debugf("icode: spawn /init\n");
 	if ((r = spawnl("init.b", "init", "initarg1", "initarg2", NULL)) < 0) {
 		user_panic("icode: spawn /init: %d", r);

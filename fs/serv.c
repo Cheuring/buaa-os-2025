@@ -152,14 +152,14 @@ void serve_open(u_int envid, struct Fsreq_open *rq) {
 		return;
 	}
 
-	if ((rq->req_omode & O_CREAT) && (r = file_create(rq->req_path, &f)) < 0 &&
+	if ((rq->req_omode & O_CREAT) && (r = file_create(envid, rq->req_path, &f)) < 0 &&
 	    r != -E_FILE_EXISTS) {
 		ipc_send(envid, r, 0, 0);
 		return;
 	}
 
 	// Open the file.
-	if ((r = file_open(rq->req_path, &f)) < 0) {
+	if ((r = file_open(envid, rq->req_path, &f)) < 0) {
 		ipc_send(envid, r, 0, 0);
 		return;
 	}
@@ -287,7 +287,7 @@ void serve_remove(u_int envid, struct Fsreq_remove *rq) {
 	// Step 1: Remove the file specified in 'rq' using 'file_remove' and store its return value.
 	int r;
 	/* Exercise 5.11: Your code here. (1/2) */
-	r = file_remove(rq->req_path);
+	r = file_remove(envid, rq->req_path);
 	// Step 2: Respond the return value to the caller 'envid' using 'ipc_send'.
 	/* Exercise 5.11: Your code here. (2/2) */
 	ipc_send(envid, r, 0, 0);
@@ -334,6 +334,20 @@ void serve_sync(u_int envid) {
 	ipc_send(envid, 0, 0, 0);
 }
 
+void serve_chdir(u_int envid, struct Fsreq_chdir *rq) {
+	struct File *file;
+	int r;
+
+	if ((r = file_open(envid, rq->req_path, &file)) < 0) {
+		ipc_send(envid, r, 0, 0);
+		return;
+	}
+
+	r = syscall_chdir(envid, file);
+
+	ipc_send(envid, r, 0, 0);
+}
+
 /*
  * The serve function table
  * File system use this table and the request number to
@@ -342,7 +356,7 @@ void serve_sync(u_int envid) {
 void *serve_table[MAX_FSREQNO] = {
     [FSREQ_OPEN] = serve_open,	 [FSREQ_MAP] = serve_map,     [FSREQ_SET_SIZE] = serve_set_size,
     [FSREQ_CLOSE] = serve_close, [FSREQ_DIRTY] = serve_dirty, [FSREQ_REMOVE] = serve_remove,
-    [FSREQ_SYNC] = serve_sync,
+    [FSREQ_SYNC] = serve_sync,	 [FSREQ_CHDIR] = serve_chdir,
 };
 
 /*

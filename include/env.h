@@ -39,6 +39,9 @@ struct Env {
 
 	// Lab 6 scheduler counts
 	u_int env_runs; // number of times we've been env_run'ed
+
+	// for shell challenge
+	struct File *cwd;
 };
 
 LIST_HEAD(Env_list, Env);

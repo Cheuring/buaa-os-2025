@@ -357,8 +357,16 @@ void runcmd(char *s) {
 	}
 	argv[argc] = 0;
 
+	if (strcmp("cd", argv[0]) == 0) {
+
+	} else if (strcmp("pwd", argv[0]) == 0) {
+
+	} else if (strcmp("history", argv[0]) == 0) {
+
+	}
+
 	int child = spawn(argv[0], argv);
-	close_all();
+	// close_all();
 	if (child >= 0) {
 		wait(child);
 	} else {
@@ -367,7 +375,7 @@ void runcmd(char *s) {
 	if (rightpipe) {
 		wait(rightpipe);
 	}
-	exit();
+	// exit();
 }
 
 void readline(char *buf, u_int n) {
@@ -611,15 +619,16 @@ int main(int argc, char **argv) {
 		if (echocmds) {
 			printf("# %s\n", buf);
 		}
-		if ((r = fork()) < 0) {
-			user_panic("fork: %d", r);
-		}
-		if (r == 0) {
-			runcmd(buf);
-			exit();
-		} else {
-			wait(r);
-		}
+		// if ((r = fork()) < 0) {
+		// 	user_panic("fork: %d", r);
+		// }
+		// if (r == 0) {
+		// 	runcmd(buf);
+		// 	exit();
+		// } else {
+		// 	wait(r);
+		// }
+		runcmd(buf);
 	}
 	return 0;
 }

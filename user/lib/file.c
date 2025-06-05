@@ -261,3 +261,7 @@ int remove(const char *path) {
 int sync(void) {
 	return fsipc_sync();
 }
+
+int chdir(const char *path) {
+	return fsipc_chdir(path);
+}

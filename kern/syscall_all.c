@@ -5,6 +5,7 @@
 #include <printk.h>
 #include <sched.h>
 #include <syscall.h>
+#include "../user/include/fs.h"
 
 extern struct Env *curenv;
 
@@ -78,7 +79,7 @@ int sys_env_destroy(u_int envid) {
 	struct Env *e;
 	try(envid2env(envid, &e, 1));
 
-	printk("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
+	// printk("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
 	env_destroy(e);
 	return 0;
 }
@@ -246,6 +247,8 @@ int sys_exofork(void) {
 	/* Exercise 4.9: Your code here. (4/4) */
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_pri = curenv->env_pri;
+	// set cwd same as parent
+	e->cwd = curenv->cwd;
 	return e->env_id;
 }
 
@@ -529,6 +532,21 @@ int sys_read_dev(u_int va, u_int pa, u_int len) {
 	return 0;
 }
 
+int syscall_chdir(u_int envid, struct File *f) {
+	struct Env *e;
+
+	if (f == NULL) {
+		return -E_INVAL;
+	}
+	if (f->f_type != FTYPE_DIR) {
+		return -E_NOT_DIR;
+	}
+	
+	try(envid2env(envid, &e, 0));
+	e->cwd = f;
+	return 0;
+}
+
 void *syscall_table[MAX_SYSNO] = {
     [SYS_putchar] = sys_putchar,
     [SYS_print_cons] = sys_print_cons,
@@ -548,6 +566,7 @@ void *syscall_table[MAX_SYSNO] = {
     [SYS_cgetc] = sys_cgetc,
     [SYS_write_dev] = sys_write_dev,
     [SYS_read_dev] = sys_read_dev,
+	[SYS_chdir] = syscall_chdir,
 };
 
 /* Overview:
