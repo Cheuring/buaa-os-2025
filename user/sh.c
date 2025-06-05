@@ -3,9 +3,12 @@
 
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
-#define DEL 0x7f
 #define PROMPT "mos> "
 #define MAX_COMMAND_LENGTH 1024
+#define DEL 0x7f
+#define ESC 0x1b
+#define BACKSPACE 0x08
+#define C(x) ((x)-'@') // Control-x
 
 #define PUT_CHAR(c) \
 	do { \
@@ -144,7 +147,7 @@ void move_history_cursor(char *buf, int *edit_idx, int offset) {
 	history.cursor = cur;
 }
 
-void stage_command(char *buf, int edit_idx) {
+void stage_command(char *buf, int *i, char *backbuf, int *backbuf_i) {
 	CHECK_FD(history.fd);
 
 	// not stage edited history 
@@ -153,8 +156,13 @@ void stage_command(char *buf, int edit_idx) {
 	}
 
 	// copy the current command to the stage command
-	memcpy(history.stage_command, buf, edit_idx);
-	history.stage_command[edit_idx] = '\0';
+	memcpy(history.stage_command, buf, *i);
+	memcpy(history.stage_command + (*i), backbuf, *backbuf_i);
+	history.stage_command[(*i) + (*backbuf_i)] = '\0';
+
+	// reset index
+	*i = 0;
+	*backbuf_i = 0;
 }
 
 void add_history(char *buf) {
@@ -380,7 +388,7 @@ void readline(char *buf, u_int n) {
 back:
 		if(state == NORMAL){
 			switch (c) {
-			case '\b':
+			case BACKSPACE:
 			case DEL:
 				// delete
 				if(i > 0){
@@ -389,11 +397,7 @@ back:
 					for(int k = backbuf_i - 1; k >= 0; k--){
 						PUT_CHAR(backbuf[k]);
 					}
-					printf(" ");
-
-					for(int k = 0; k < backbuf_i + 1; k++){
-						printf("\b");
-					}
+					printf(" \033[%dD", backbuf_i + 1);
 				}
 				break;
 	
@@ -407,8 +411,80 @@ back:
 				buf[i] = 0;
 				return;
 	
-			case 27: // escape
+			case ESC:
 				state = GOT_ESC;
+				break;
+
+			case C('E'):
+				// move cursor to the end
+				if(backbuf_i > 0) {
+					printf("\033[%dC", backbuf_i);
+					for(int k = backbuf_i - 1; k >= 0; k--){
+						buf[i++] = backbuf[k];
+					}
+					backbuf_i = 0;
+				}
+				break;
+
+			case C('A'):
+				// move cursor to the start
+				if(i > 0) {
+					printf("\033[%dD", i);
+					for(int k = i - 1; k >= 0; --k){
+						backbuf[backbuf_i++] = buf[k];
+					}
+					i = 0;
+				}
+				break;
+
+			case C('K'):
+				// clear line from cursor to end
+				printf("\033[K");
+				backbuf_i = 0;
+				break;
+
+			case C('U'):
+				// clear line from start to cursor
+				if(i > 0) {
+					printf("\r\033[K%s", PROMPT);
+					for(int k = backbuf_i - 1; k >= 0; k--){
+						PUT_CHAR(backbuf[k]);
+					}
+					if(backbuf_i > 0) {
+						printf("\033[%dD", backbuf_i);
+					}
+					i = 0;
+				}
+				break;
+
+			case C('W'):
+				// delete word
+				{
+					int temp_i = i;
+					while (temp_i > 0 && strchr(WHITESPACE, buf[temp_i - 1])) {
+						temp_i--;
+					}
+					while (temp_i > 0 && !strchr(WHITESPACE, buf[temp_i - 1])) {
+						temp_i--;
+					}
+
+					if(i > temp_i) {
+						// move cursor
+						printf("\033[%dD", i - temp_i);
+						// clear till end of line
+						printf("\033[K");
+						// redraw the back buffer
+						for(int k = backbuf_i - 1; k >= 0; k--){
+							PUT_CHAR(backbuf[k]);
+						}
+						// remove the word from the buffer
+						if(backbuf_i > 0) {
+							printf("\033[%dD", backbuf_i);
+						}
+
+						i = temp_i;
+					}
+				}
 				break;
 	
 			default:
@@ -419,8 +495,8 @@ back:
 					PUT_CHAR(backbuf[k]);
 				}
 
-				for(int k = 0; k < backbuf_i; k++){
-					printf("\b");
+				if(backbuf_i > 0) {
+					printf("\033[%dD", backbuf_i);
 				}
 			}
 		}else if(state == GOT_ESC){
@@ -436,7 +512,7 @@ back:
 			case 'A':
 				// up arrow
 				// stage command
-				stage_command(buf, i);
+				stage_command(buf, &i, backbuf, &backbuf_i);
 				// get previous command
 				move_history_cursor(buf, &i, -1);
 				// print the command
@@ -445,7 +521,7 @@ back:
 			case 'B':
 				// down arrow
 				// stage command
-				stage_command(buf, i);
+				stage_command(buf, &i, backbuf, &backbuf_i);
 				// get next command
 				move_history_cursor(buf, &i, 1);
 				// print the command
@@ -468,6 +544,8 @@ back:
 				}
 				break;
 			default:
+				printf("[");
+				buf[i++] = '[';
 				state = NORMAL;
 				goto back;
 			}
