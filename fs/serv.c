@@ -343,7 +343,7 @@ void serve_chdir(u_int envid, struct Fsreq_chdir *rq) {
 		return;
 	}
 
-	r = syscall_chdir(envid, file);
+	r = syscall_chdir(envid, file, rq->req_path);
 
 	ipc_send(envid, r, 0, 0);
 }

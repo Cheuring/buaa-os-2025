@@ -5,9 +5,9 @@
 #include <printk.h>
 #include <sched.h>
 #include <syscall.h>
-#include "../user/include/fs.h"
 
 extern struct Env *curenv;
+void simplify_path(char *);
 
 /* Overview:
  * 	This function is used to print a character on screen.
@@ -532,7 +532,24 @@ int sys_read_dev(u_int va, u_int pa, u_int len) {
 	return 0;
 }
 
-int syscall_chdir(u_int envid, struct File *f) {
+int set_cwd_name(char *cwd_name, const char *path) {
+	char temp[MAXPATHLEN * 2];
+
+	int len = strlen(cwd_name);
+	strcpy(temp, cwd_name);
+	temp[len] = '/';
+	strcpy(temp + len + 1, path);
+
+	simplify_path(temp);
+	if (strlen(temp) >= MAXPATHLEN) {
+		return -E_BAD_PATH;
+	}
+
+	strcpy(cwd_name, temp);
+	return 0;
+}
+
+int sys_chdir(u_int envid, struct File *f, const char *path) {
 	struct Env *e;
 
 	if (f == NULL) {
@@ -543,6 +560,8 @@ int syscall_chdir(u_int envid, struct File *f) {
 	}
 	
 	try(envid2env(envid, &e, 0));
+	
+	try(set_cwd_name(e->cwd_name, path));
 	e->cwd = f;
 	return 0;
 }
@@ -566,7 +585,7 @@ void *syscall_table[MAX_SYSNO] = {
     [SYS_cgetc] = sys_cgetc,
     [SYS_write_dev] = sys_write_dev,
     [SYS_read_dev] = sys_read_dev,
-	[SYS_chdir] = syscall_chdir,
+	[SYS_chdir] = sys_chdir,
 };
 
 /* Overview:
@@ -607,4 +626,70 @@ void do_syscall(struct Trapframe *tf) {
 	 */
 	/* Exercise 4.2: Your code here. (4/4) */
 	tf->regs[2] = func(arg1, arg2, arg3, arg4, arg5);
+}
+
+void simplify_path(char *path) {
+    char *stack[1024];
+    int top = 0;
+    int is_absolute = (path[0] == '/');
+    int dotdot_count = 0;
+    char *token = path;
+
+    // Skip leading slashes
+    while(*token == '/') {
+        token++;
+    }
+
+    while(*token) {
+        char *start = token;
+
+        // Find the next slash or end of string
+        while(*token && *token != '/') token++;
+
+        int length = token - start;
+        if(length == 0) {
+            // skip
+        }else if(length == 1 && *start == '.') {
+            // Do nothing for '.'
+        } else if(length == 2 && start[0] == '.' && start[1] == '.') {
+            if(dotdot_count < top) {
+                -- top;
+            }else if(!is_absolute) {
+                stack[top++] = start;
+                if(*token == '/') {
+                    *token = '\0';
+                    token++;
+                }
+                dotdot_count++;
+            }
+        } else {
+            // Push valid segment onto stack
+            stack[top++] = start;
+            if(*token == '/') {
+                *token = '\0';
+                token++;
+            }
+        }
+
+        // Skip slashes
+        while(*token == '/') {
+            token++;
+        }
+    }
+
+    // Construct the simplified path
+    char *result = path;
+    if(is_absolute) {
+        *result++ = '/';
+    }
+    for(int i = 0; i < top; i++) {
+        while(*stack[i]) {
+            *result++ = *stack[i]++;
+        }
+        if(i < top - 1) {
+            *result++ = '/';
+        }
+    }
+    
+    *result = '\0';
 }

@@ -7,7 +7,7 @@ uint32_t *bitmap;
 
 void file_flush(struct File *);
 int block_is_free(u_int);
-char* simplify_path(char *);
+void simplify_path(char *);
 
 // Overview:
 //  Return the virtual address of this disk block in cache.
@@ -574,21 +574,24 @@ char *skip_slash(char *p) {
 //  the file is in.
 //  If we cannot find the file but find the directory it should be in, set
 //  *pdir and copy the final path element into lastelem.
-int walk_path(struct File *base, char *path, struct File **pdir, struct File **pfile, char *lastelem) {
+int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, char *lastelem) {
 	char *p;
 	char name[MAXNAMELEN];
 	struct File *dir, *file;
 	int r;
 
-	// start at the root.
-	// path = skip_slash(path);
-	// path = simplify_path(path);
+	simplify_path(path);
+
 	if(path[0] == '/') {
 		file = &super->s_root;
 		dir = 0;
-		path = skip_slash(path);
+		path++;
 	} else {
-		file = base;
+		if (envid == 0) {
+			file = env->cwd;
+		} else {
+			file = envs[ENVX(envid)].cwd;
+		}
 		dir = file->f_dir;
 	}
 	// dir = 0;
@@ -615,7 +618,7 @@ int walk_path(struct File *base, char *path, struct File **pdir, struct File **p
 
 		memcpy(name, p, path - p);
 		name[path - p] = '\0';
-		path = skip_slash(path);
+		path++;
 		if (dir->f_type != FTYPE_DIR) {
 			return -E_NOT_FOUND;
 		}
@@ -626,6 +629,7 @@ int walk_path(struct File *base, char *path, struct File **pdir, struct File **p
 		} else if (strcmp(name, "..") == 0) {
 			// go to parent directory.
 			if (dir->f_dir) {
+				file = dir->f_dir;
 				dir = dir->f_dir;
 			}
 			continue;
@@ -663,14 +667,7 @@ int walk_path(struct File *base, char *path, struct File **pdir, struct File **p
 //  On success set *pfile to point at the file and return 0.
 //  On error return < 0.
 int file_open(u_int envid, char *path, struct File **file) {
-	struct File *base;
-
-	if(envid == 0) {
-		base = env->cwd;
-	}else{
-		base = envs[ENVX(envid)].cwd;
-	}
-	return walk_path(base, path, 0, file, 0);
+	return walk_path(envid, path, 0, file, 0);
 }
 
 // Overview:
@@ -682,15 +679,9 @@ int file_open(u_int envid, char *path, struct File **file) {
 int file_create(u_int envid, char *path, struct File **file) {
 	char name[MAXNAMELEN];
 	int r;
-	struct File *dir, *f, *base;
+	struct File *dir, *f;
 
-	if(envid == 0) {
-		base = env->cwd;
-	}else{
-		base = envs[ENVX(envid)].cwd;
-	}
-
-	if ((r = walk_path(base, path, &dir, &f, name)) == 0) {
+	if ((r = walk_path(envid, path, &dir, &f, name)) == 0) {
 		return -E_FILE_EXISTS;
 	}
 
@@ -828,16 +819,10 @@ void file_close(struct File *f) {
 //  Remove a file by truncating it and then zeroing the name.
 int file_remove(u_int envid, char *path) {
 	int r;
-	struct File *f, *base;
-
-	if(envid == 0) {
-		base = env->cwd;
-	}else{
-		base = envs[ENVX(envid)].cwd;
-	}
+	struct File *f;
 
 	// Step 1: find the file on the disk.
-	if ((r = walk_path(base, path, 0, &f, 0)) < 0) {
+	if ((r = walk_path(envid, path, 0, &f, 0)) < 0) {
 		return r;
 	}
 
@@ -856,8 +841,68 @@ int file_remove(u_int envid, char *path) {
 	return 0;
 }
 
-// Overview:
-//  Simplify a path by removing redundant slashes and resolving '.' and '..'.
-char* simplify_path(char *path) {
-	return skip_slash(path);
+void simplify_path(char *path) {
+    char *stack[1024];
+    int top = 0;
+    int is_absolute = (path[0] == '/');
+    int dotdot_count = 0;
+    char *token = path;
+
+    // Skip leading slashes
+    while(*token == '/') {
+        token++;
+    }
+
+    while(*token) {
+        char *start = token;
+
+        // Find the next slash or end of string
+        while(*token && *token != '/') token++;
+
+        int length = token - start;
+        if(length == 0) {
+            // skip
+        }else if(length == 1 && *start == '.') {
+            // Do nothing for '.'
+        } else if(length == 2 && start[0] == '.' && start[1] == '.') {
+            if(dotdot_count < top) {
+                -- top;
+            }else if(!is_absolute) {
+                stack[top++] = start;
+                if(*token == '/') {
+                    *token = '\0';
+                    token++;
+                }
+                dotdot_count++;
+            }
+        } else {
+            // Push valid segment onto stack
+            stack[top++] = start;
+            if(*token == '/') {
+                *token = '\0';
+                token++;
+            }
+        }
+
+        // Skip slashes
+        while(*token == '/') {
+            token++;
+        }
+    }
+
+    // Construct the simplified path
+    char *result = path;
+    if(is_absolute) {
+        *result++ = '/';
+    }
+    for(int i = 0; i < top; i++) {
+        while(*stack[i]) {
+            *result++ = *stack[i]++;
+        }
+        if(i < top - 1) {
+            *result++ = '/';
+        }
+    }
+    
+    *result = '\0';
 }

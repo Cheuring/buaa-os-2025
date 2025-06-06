@@ -5,6 +5,7 @@
 #include <queue.h>
 #include <trap.h>
 #include <types.h>
+#include <../user/include/fs.h>
 
 #define LOG2NENV 10
 #define NENV (1 << LOG2NENV)
@@ -42,6 +43,7 @@ struct Env {
 
 	// for shell challenge
 	struct File *cwd;
+	char cwd_name[MAXPATHLEN];
 };
 
 LIST_HEAD(Env_list, Env);
