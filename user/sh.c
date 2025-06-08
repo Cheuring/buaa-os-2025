@@ -39,6 +39,8 @@ static struct {
 	char stage_command[MAX_COMMAND_LENGTH]; // current command being edited
 } history;
 
+static char cwd[MAXPATHLEN];
+
 // using buffer, read a line from fd into buf
 int fgetline(int fd, char *buf, u_int n) {
 	char _buf[32];
@@ -184,6 +186,21 @@ void add_history(char *buf) {
 	save_command_history();
 }
 
+void show_history() {
+	CHECK_FD(history.fd);
+
+	// print the history buffer
+	int i = history.write_index - MAX_HISTORY_COMMANDS;
+	if (i < 0) {
+		i = 0;
+	}
+
+	while(i < history.write_index) {
+		int idx = i % MAX_HISTORY_COMMANDS;
+		printf("%s\n", history.buffer[idx]);
+		i++;
+	}
+}
 
 /* Overview:
  *   Parse the next token from the string at s.
@@ -357,12 +374,44 @@ void runcmd(char *s) {
 	}
 	argv[argc] = 0;
 
+	int r;
 	if (strcmp("cd", argv[0]) == 0) {
+		switch (argc) {
+		case 1:
+			argv[1] = "/";
+		case 2:
+			if((r = chdir(argv[1])) < 0) {
+				debugf("chdir %s: %d\n", argv[1], r);
+			} else {
+				strcpy(cwd, env->cwd_name);
+			}
 
-	} else if (strcmp("pwd", argv[0]) == 0) {
+			break;
+		
+		default:
+			printf("Too many args for cd command\n");
+		}
 
-	} else if (strcmp("history", argv[0]) == 0) {
+		return;
+	}
+	if (strcmp("pwd", argv[0]) == 0) {
+		if(argc > 1) {
+			printf("pwd: expected 0 arguments; got %d\n", argc - 1);
+		}else{
+			printf("%s\n", cwd);
+		}
 
+		return;
+	}
+
+	if (strcmp("history", argv[0]) == 0) {
+		if(argc > 1) {
+			printf("history: expected 0 arguments; got %d\n", argc - 1);
+		}else{
+			show_history();
+		}
+
+		return;
 	}
 
 	int child = spawn(argv[0], argv);
@@ -606,6 +655,7 @@ int main(int argc, char **argv) {
 		user_assert(r == 0);
 	}
 	load_command_history();
+	strcpy(cwd, env->cwd_name);
 	for (;;) {
 		if (interactive) {
 			printf("\n%s", PROMPT);

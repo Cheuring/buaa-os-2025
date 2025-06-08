@@ -249,6 +249,7 @@ int sys_exofork(void) {
 	e->env_pri = curenv->env_pri;
 	// set cwd same as parent
 	e->cwd = curenv->cwd;
+	strcpy(e->cwd_name, curenv->cwd_name);
 	return e->env_id;
 }
 

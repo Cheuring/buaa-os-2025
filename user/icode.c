@@ -22,6 +22,7 @@ int main() {
 	if ((r = chdir("/")) < 0) {
 		user_panic("icode: chdir /: %d", r);
 	}
+	debugf("icode cwd: %s\n", env->cwd_name);
 	
 	debugf("icode: spawn /init\n");
 	if ((r = spawnl("init.b", "init", "initarg1", "initarg2", NULL)) < 0) {
