@@ -348,6 +348,14 @@ void serve_chdir(u_int envid, struct Fsreq_chdir *rq) {
 	ipc_send(envid, r, 0, 0);
 }
 
+void serve_mkdir(u_int envid, struct Fsreq_mkdir *rq) {
+	int r;
+
+	r = file_mkdir(envid, rq->req_path, rq->isRecursive);
+
+	ipc_send(envid, r, 0, 0);
+}
+
 /*
  * The serve function table
  * File system use this table and the request number to
@@ -356,7 +364,7 @@ void serve_chdir(u_int envid, struct Fsreq_chdir *rq) {
 void *serve_table[MAX_FSREQNO] = {
     [FSREQ_OPEN] = serve_open,	 [FSREQ_MAP] = serve_map,     [FSREQ_SET_SIZE] = serve_set_size,
     [FSREQ_CLOSE] = serve_close, [FSREQ_DIRTY] = serve_dirty, [FSREQ_REMOVE] = serve_remove,
-    [FSREQ_SYNC] = serve_sync,	 [FSREQ_CHDIR] = serve_chdir,
+    [FSREQ_SYNC] = serve_sync,	 [FSREQ_CHDIR] = serve_chdir, [FSREQ_MKDIR] = serve_mkdir,
 };
 
 /*

@@ -102,6 +102,7 @@ int fsipc_remove(const char *);
 int fsipc_sync(void);
 int fsipc_incref(u_int);
 int fsipc_chdir(const char *);
+int fsipc_mkdir(const char *path, int isRecursive);
 
 // fd.c
 int close(int fd);
@@ -121,6 +122,7 @@ int remove(const char *path);
 int ftruncate(int fd, u_int size);
 int sync(void);
 int chdir(const char *path);
+int mkdir(const char *path, int isRecursive);
 
 #define user_assert(x)                                                                             \
 	do {                                                                                       \

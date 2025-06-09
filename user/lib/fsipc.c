@@ -143,3 +143,13 @@ int fsipc_chdir(const char *path) {
 	strcpy((char *)req->req_path, path);
 	return fsipc(FSREQ_CHDIR, req, 0, 0);
 }
+
+int fsipc_mkdir(const char *path, int isRecursive) {
+	if(path[0] == '\0' || strlen(path) >= MAXPATHLEN)
+		return -E_BAD_PATH;
+
+	struct Fsreq_mkdir *req = (struct Fsreq_mkdir *)fsipcbuf;
+	strcpy((char *)req->req_path, path);
+	req->isRecursive = isRecursive;
+	return fsipc(FSREQ_MKDIR, req, 0, 0);
+}

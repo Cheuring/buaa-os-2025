@@ -507,7 +507,7 @@ int dir_lookup(struct File *dir, char *name, struct File **file) {
 			// If we find the target file, set '*file' to it and set up its 'f_dir'
 			// field.
 			/* Exercise 5.8: Your code here. (3/3) */
-			if(strcmp(name, f->f_name) == 0){
+			if(strcmp(name, f->f_name) == 0) {
 				*file = f;
 				f->f_dir = dir;
 				return 0;
@@ -574,7 +574,7 @@ char *skip_slash(char *p) {
 //  the file is in.
 //  If we cannot find the file but find the directory it should be in, set
 //  *pdir and copy the final path element into lastelem.
-int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, char *lastelem) {
+int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, char *lastelem, u_int createParent) {
 	char *p;
 	char name[MAXNAMELEN];
 	struct File *dir, *file;
@@ -646,6 +646,18 @@ int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, 
 				}
 
 				*pfile = 0;
+			} else if (r == -E_NOT_FOUND && *path && createParent) {
+				// if the file is not found, but we need to create it.
+				if ((r = dir_alloc_file(dir, &file)) < 0) {
+					return r;
+				}
+				// debugf("created file %s in directory %s\n", name, dir->f_name);
+				strcpy(file->f_name, name);
+				file->f_type = FTYPE_DIR;
+				file->f_size = 0;
+				file->f_indirect = 0;
+
+				continue;
 			}
 
 			return r;
@@ -667,7 +679,7 @@ int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, 
 //  On success set *pfile to point at the file and return 0.
 //  On error return < 0.
 int file_open(u_int envid, char *path, struct File **file) {
-	return walk_path(envid, path, 0, file, 0);
+	return walk_path(envid, path, 0, file, 0, 0);
 }
 
 // Overview:
@@ -681,7 +693,7 @@ int file_create(u_int envid, char *path, struct File **file) {
 	int r;
 	struct File *dir, *f;
 
-	if ((r = walk_path(envid, path, &dir, &f, name)) == 0) {
+	if ((r = walk_path(envid, path, &dir, &f, name, 0)) == 0) {
 		return -E_FILE_EXISTS;
 	}
 
@@ -695,6 +707,39 @@ int file_create(u_int envid, char *path, struct File **file) {
 
 	strcpy(f->f_name, name);
 	*file = f;
+	return 0;
+}
+
+// Overview:
+//  Create a directory at "path".
+// Post-Condition:
+//  On success, return 0.
+//  On error, return < 0.
+int file_mkdir(u_int envid, char *path, int isRecursive) {
+	int r;
+	struct File *dir, *f;
+	const char* name;
+
+	if ((r = walk_path(envid, path, &dir, &f, 0, isRecursive)) == 0) {
+		return -E_FILE_EXISTS;
+	}
+
+	if (r != -E_NOT_FOUND || dir == 0) {
+		// debugf("file_mkdir: walk_path failed with %d\n", r);
+		return r;
+	}
+
+	if (dir_alloc_file(dir, &f) < 0) {
+		return r;
+	}
+
+	name = strrchr(path, '/');
+	strcpy(f->f_name, name ? name + 1 : path);
+	f->f_type = FTYPE_DIR;
+	f->f_size = 0;
+	f->f_indirect = 0;
+	// debugf("created directory %s\n", f->f_name);
+
 	return 0;
 }
 
@@ -822,7 +867,7 @@ int file_remove(u_int envid, char *path) {
 	struct File *f;
 
 	// Step 1: find the file on the disk.
-	if ((r = walk_path(envid, path, 0, &f, 0)) < 0) {
+	if ((r = walk_path(envid, path, 0, &f, 0, 0)) < 0) {
 		return r;
 	}
 

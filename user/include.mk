@@ -42,6 +42,7 @@ ifeq ($(call lab-ge,6), true)
 			testfdsharing.b \
 			pingpong.b \
 			touch.b \
+			mkdir.b \
 			init.b
 endif
 

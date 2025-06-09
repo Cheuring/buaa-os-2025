@@ -80,6 +80,18 @@ const char *strchr(const char *s, int c) {
 	return 0;
 }
 
+const char *strrchr(const char *s, int c) {
+	const char *last = 0;
+
+	for (; *s; s++) {
+		if (*s == c) {
+			last = s;
+		}
+	}
+
+	return last;
+}
+
 int strcmp(const char *p, const char *q) {
 	while (*p && *p == *q) {
 		p++, q++;

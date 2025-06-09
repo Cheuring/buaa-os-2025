@@ -368,15 +368,9 @@ void runcmd(char *s) {
 	gettoken(s, 0);
 
 	char *argv[MAXARGS];
-	int rightpipe = 0, r;
+	int rightpipe = 0;
 	
-	if((r = fork()) < 0) {
-		debugf("fork: %d\n", r);
-		return;
-	}
-	if(r > 0){
-		
-	}
+	// todo: fix bug
 	int argc = parsecmd(argv, &rightpipe);
 	if (argc == 0) {
 		return;

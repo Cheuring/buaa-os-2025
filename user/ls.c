@@ -45,14 +45,14 @@ void ls1(char *prefix, u_int isdir, u_int size, char *name) {
 	if (flag['l']) {
 		printf("%11d %c ", size, isdir ? 'd' : '-');
 	}
-	if (prefix) {
-		if (prefix[0] && prefix[strlen(prefix) - 1] != '/') {
-			sep = "/";
-		} else {
-			sep = "";
-		}
-		printf("%s%s", prefix, sep);
-	}
+	// if (prefix) {
+	// 	if (prefix[0] && prefix[strlen(prefix) - 1] != '/') {
+	// 		sep = "/";
+	// 	} else {
+	// 		sep = "";
+	// 	}
+	// 	printf("%s%s", prefix, sep);
+	// }
 	printf("%s", name);
 	if (flag['F'] && isdir) {
 		printf("/");
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 	ARGEND
 
 	if (argc == 0) {
-		ls("/", "");
+		ls(".", "");
 	} else {
 		for (i = 0; i < argc; i++) {
 			ls(argv[i], argv[i]);

@@ -27,6 +27,7 @@ void file_close(struct File *f);
 int file_remove(u_int envid, char *path);
 int file_dirty(struct File *f, u_int offset);
 void file_flush(struct File *);
+int file_mkdir(u_int envid, char *path, int isRecursive);
 
 void fs_init(void);
 void fs_sync(void);
