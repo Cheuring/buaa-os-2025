@@ -41,6 +41,7 @@ ifeq ($(call lab-ge,6), true)
 			testbss.b \
 			testfdsharing.b \
 			pingpong.b \
+			touch.b \
 			init.b
 endif
 

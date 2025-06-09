@@ -312,6 +312,7 @@ int parsecmd(char **argv, int *rightpipe) {
 				debugf("failed to open '%s'\n", t);
 				exit();
 			}
+			debugf("reached here, fd: %d\n", fd);
 			dup(fd, 1);
 			close(fd);
 
@@ -367,7 +368,15 @@ void runcmd(char *s) {
 	gettoken(s, 0);
 
 	char *argv[MAXARGS];
-	int rightpipe = 0;
+	int rightpipe = 0, r;
+	
+	if((r = fork()) < 0) {
+		debugf("fork: %d\n", r);
+		return;
+	}
+	if(r > 0){
+		
+	}
 	int argc = parsecmd(argv, &rightpipe);
 	if (argc == 0) {
 		return;
@@ -403,7 +412,6 @@ void runcmd(char *s) {
 
 		return;
 	}
-
 	if (strcmp("history", argv[0]) == 0) {
 		if(argc > 1) {
 			printf("history: expected 0 arguments; got %d\n", argc - 1);

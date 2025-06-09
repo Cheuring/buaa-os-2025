@@ -585,7 +585,7 @@ int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, 
 	if(path[0] == '/') {
 		file = &super->s_root;
 		dir = 0;
-		path++;
+		path = skip_slash(path);
 	} else {
 		if (envid == 0) {
 			file = env->cwd;
@@ -618,7 +618,7 @@ int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, 
 
 		memcpy(name, p, path - p);
 		name[path - p] = '\0';
-		path++;
+		path = skip_slash(path);
 		if (dir->f_type != FTYPE_DIR) {
 			return -E_NOT_FOUND;
 		}
