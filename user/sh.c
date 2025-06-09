@@ -1,10 +1,10 @@
 #include <args.h>
 #include <lib.h>
+#include <history.h>
 
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
 #define PROMPT "mos> "
-#define MAX_COMMAND_LENGTH 1024
 #define DEL 0x7f
 #define ESC 0x1b
 #define BACKSPACE 0x08
@@ -19,188 +19,10 @@
 		} \
 	} while (0)
 
-#define CHECK_FD(fd) \
-	do { \
-		if ((fd) < 0) { \
-			debugf("bad fd %d\n", (fd)); \
-			return; \
-		} \
-	} while (0)
 
-// history structure
-static struct {
-	#define MAX_HISTORY_COMMANDS 20
-	#define HISTORY_FILE "/.mosh_history"
-
-	int fd; // file descriptor for history file
-	int write_index; // next write index in history.buffer
-	int cursor; // moving cursor in history.buffer
-	char buffer[MAX_HISTORY_COMMANDS][MAX_COMMAND_LENGTH]; // command history buffer
-	char stage_command[MAX_COMMAND_LENGTH]; // current command being edited
-} history;
-
+static struct History history;
 static char cwd[MAXPATHLEN];
 
-// using buffer, read a line from fd into buf
-int fgetline(int fd, char *buf, u_int n) {
-	char _buf[32];
-	int r;
-	u_int i = 0;
-
-	if (n == 0) {
-		return 0; // no space to read
-	}
-
-	while (i < n - 1) {
-		if ((r = read(fd, _buf, sizeof(_buf))) <= 0) {
-			if (r < 0) {
-				debugf("read error: %d\n", r);
-			}
-			break;
-		}
-		for (int j = 0; j < r; j++) {
-			if (_buf[j] == '\n') {
-				buf[i++] = '\0';
-				return i;
-			} else if (_buf[j] == '\r') {
-				continue; // ignore carriage return
-			} else {
-				buf[i++] = _buf[j];
-				if(i == n - 1) {
-					break;
-				}
-			}
-		}
-	}
-	buf[i] = '\0';
-
-	if (i == n - 1) {
-		debugf("line too long\n");
-		return -1;
-	}
-
-	return i;
-}
-
-void load_command_history() {
-	history.write_index = 0;
-
-	if ((history.fd = open(HISTORY_FILE, O_RDWR | O_CREAT)) < 0) {
-		debugf("failed to open history file: %s\n", HISTORY_FILE);
-		return;
-	}
-
-	while (history.write_index < MAX_HISTORY_COMMANDS && fgetline(history.fd, history.buffer[history.write_index], MAX_COMMAND_LENGTH) > 0) {
-		++history.write_index;
-	}
-
-	// set cursor to the end of history
-	history.cursor = history.write_index;
-}
-
-void save_command_history() {
-	CHECK_FD(history.fd);
-
-	// always write from start
-	seek(history.fd, 0);
-
-	if(history.write_index < MAX_HISTORY_COMMANDS) {
-		// if we have less than MAX_HISTORY_COMMANDS, write only the used part
-		for (int i = 0; i < history.write_index; ++i) {
-			write(history.fd, history.buffer[i], strlen(history.buffer[i]));
-			write(history.fd, "\n", 1);
-		}
-	} else {
-		// write from earliest to latest
-		for (int i = 0; i < MAX_HISTORY_COMMANDS; ++i) {
-			int idx = (history.write_index + i) % MAX_HISTORY_COMMANDS;
-			write(history.fd, history.buffer[idx], strlen(history.buffer[idx]));
-			write(history.fd, "\n", 1);
-		}
-	}
-}
-
-void move_history_cursor(char *buf, int *edit_idx, int offset) {
-	CHECK_FD(history.fd);
-
-	int cur = history.cursor + offset;
-	if(cur < 0 || cur <= history.write_index - MAX_HISTORY_COMMANDS) {
-		// out of bounds
-		debugf("history at the top: %d\n", cur);
-		return;
-	}
-
-	if(cur == history.write_index) {
-		// if we are at the end, just pop the stage command
-		memcpy(buf, history.stage_command, MAX_COMMAND_LENGTH);
-		*edit_idx = strlen(buf);
-		history.cursor = cur;
-		return;
-	}
-
-	if(cur > history.write_index) {
-		// out of bounds
-		debugf("history at the bottom: %d\n", cur);
-		return;
-	}
-
-	memcpy(buf, history.buffer[cur % MAX_HISTORY_COMMANDS], MAX_COMMAND_LENGTH);
-	*edit_idx = strlen(buf);
-	history.cursor = cur;
-}
-
-void stage_command(char *buf, int *i, char *backbuf, int *backbuf_i) {
-	CHECK_FD(history.fd);
-
-	// not stage edited history 
-	if(history.cursor != history.write_index) {
-		return;
-	}
-
-	// copy the current command to the stage command
-	memcpy(history.stage_command, buf, *i);
-	memcpy(history.stage_command + (*i), backbuf, *backbuf_i);
-	history.stage_command[(*i) + (*backbuf_i)] = '\0';
-
-	// reset index
-	*i = 0;
-	*backbuf_i = 0;
-}
-
-void add_history(char *buf) {
-	CHECK_FD(history.fd);
-	int idx = history.write_index % MAX_HISTORY_COMMANDS;
-
-	// if the command is empty, do nothing
-	if (buf[0] == '\0') {
-		return;
-	}
-
-	// add the command to the history buffer
-	memcpy(history.buffer[idx], buf, MAX_COMMAND_LENGTH);
-	// history.buffer[idx][MAX_COMMAND_LENGTH - 1] = '\0'; // ensure null termination
-	history.write_index++;
-	history.cursor = history.write_index;
-
-	// save the history to file
-	save_command_history();
-}
-
-void show_history() {
-	CHECK_FD(history.fd);
-
-	// print the history buffer
-	int i = history.write_index - MAX_HISTORY_COMMANDS;
-	if (i < 0) {
-		i = 0;
-	}
-
-	while(i < history.write_index) {
-		int idx = i % MAX_HISTORY_COMMANDS;
-		printf("%s\n", history.buffer[idx]);
-		i++;
-	}
-}
 
 /* Overview:
  *   Parse the next token from the string at s.
@@ -386,7 +208,7 @@ void runcmd(char *s) {
 			if((r = chdir(argv[1])) < 0) {
 				debugf("chdir %s: %d\n", argv[1], r);
 			} else {
-				strcpy(cwd, env->cwd_name);
+				strcpy(cwd, (const char*)env->cwd_name);
 			}
 
 			break;
@@ -410,7 +232,7 @@ void runcmd(char *s) {
 		if(argc > 1) {
 			printf("history: expected 0 arguments; got %d\n", argc - 1);
 		}else{
-			show_history();
+			show_history(&history);
 		}
 
 		return;
@@ -571,18 +393,18 @@ back:
 			case 'A':
 				// up arrow
 				// stage command
-				stage_command(buf, &i, backbuf, &backbuf_i);
+				stage_command(&history, buf, &i, backbuf, &backbuf_i);
 				// get previous command
-				move_history_cursor(buf, &i, -1);
+				move_history_cursor(&history, buf, &i, -1);
 				// print the command
 				printf("\r\033[K%s%s", PROMPT, buf);
 				break;
 			case 'B':
 				// down arrow
 				// stage command
-				stage_command(buf, &i, backbuf, &backbuf_i);
+				stage_command(&history, buf, &i, backbuf, &backbuf_i);
 				// get next command
-				move_history_cursor(buf, &i, 1);
+				move_history_cursor(&history, buf, &i, 1);
 				// print the command
 				printf("\r\033[K%s%s", PROMPT, buf);
 				break;
@@ -656,14 +478,14 @@ int main(int argc, char **argv) {
 		}
 		user_assert(r == 0);
 	}
-	load_command_history();
-	strcpy(cwd, env->cwd_name);
+	load_command_history(&history);
+	strcpy(cwd, (const char*)env->cwd_name);
 	for (;;) {
 		if (interactive) {
 			printf("\n%s", PROMPT);
 		}
 		readline(buf, sizeof buf);
-		add_history(buf);
+		add_history(&history, buf);
 
 		if (buf[0] == '#') {
 			continue;

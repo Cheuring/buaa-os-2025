@@ -27,7 +27,7 @@ ifeq ($(call lab-ge,6), true)
 			testpiperace.x \
 			testptelibrary.x
 
-	USERLIB      += wait.o spawn.o pipe.o
+	USERLIB      += wait.o spawn.o pipe.o history.o
 	USERAPPS     := num.b  \
 			echo.b \
 			halt.b \
