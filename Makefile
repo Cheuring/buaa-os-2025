@@ -85,7 +85,7 @@ run:
 	$(QEMU) $(QEMU_FLAGS) -kernel $(mos_elf)
 
 dbg_run:
-	$(QEMU) $(QEMU_FLAGS) -kernel $(mos_elf) -s -S
+	$(QEMU) $(QEMU_FLAGS) -kernel $(mos_elf) -gdb tcp::26000 -S
 
 dbg:
 	export QEMU="$(QEMU)"
