@@ -8,6 +8,7 @@ void exit(void) {
 	close_all();
 #endif
 
+	DEBUGF("exiting env %d\n", env->env_id);
 	syscall_env_destroy(0);
 	user_panic("unreachable code");
 }

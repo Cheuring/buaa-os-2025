@@ -71,6 +71,20 @@ char *strcpy(char *dst, const char *src) {
 	return ret;
 }
 
+char *strncpy(char *dst, const char *src, size_t n) {
+	char *ret = dst;
+	size_t i;
+
+	for(i = 0; i < n && *src; i++) {
+		*dst++ = *src++;
+	}
+	for (; i < n; i++) {
+		*dst++ = 0; // pad with null bytes
+	}
+
+	return ret;
+}
+
 const char *strchr(const char *s, int c) {
 	for (; *s; s++) {
 		if (*s == c) {

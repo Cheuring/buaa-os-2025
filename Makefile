@@ -31,6 +31,11 @@ ifeq ($(call lab-ge,5),true)
 	targets         += fs-image
 endif
 
+DEBUG ?= 0
+ifeq ($(DEBUG), 1)
+	CFLAGS += -DDEBUG
+endif
+
 objects                 := $(addsuffix /*.o, $(modules)) $(addsuffix /*.x, $(user_modules))
 modules                 += $(user_modules)
 

@@ -21,8 +21,13 @@ extern const volatile struct Env *env;
 #define USED(x) (void)(x)
 #define C(x) ((x) - '@')  // Control-x
 
-// debugf
+// for debugging
 void debugf(const char *fmt, ...);
+#ifdef DEBUG
+#define DEBUGF(...) debugf(__VA_ARGS__)
+#else
+#define DEBUGF(...) ((void)0)
+#endif
 
 void _user_panic(const char *, int, const char *, ...) __attribute__((noreturn));
 void _user_halt(const char *, int, const char *, ...) __attribute__((noreturn));

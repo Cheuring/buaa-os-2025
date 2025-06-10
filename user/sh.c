@@ -14,6 +14,8 @@ static char cwd[MAXPATHLEN];
 static int interactive;
 static int storedFd[2];
 
+void runcmd(char *);
+
 #define PRINTF(...)              \
     do {                         \
         if (interactive) {       \
@@ -98,7 +100,6 @@ int isDir(const char *path) {
     struct Stat st;
     int r;
     if ((r = stat(path, &st)) < 0) {
-        // debugf("stat '%s': %d\n", path, r);
         return r;
     }
 
@@ -111,6 +112,7 @@ int fork1(void) {
         debugf("fork: %d\n", r);
         exit();
     }
+    DEBUGF("fork1: %d\n", r);
     return r;
 }
 
@@ -136,6 +138,103 @@ static void restore_01(int p[2]) {
     }
 }
 
+char *process_backticks(char *cmd) {
+    char *result = cmd;
+    char *start = (char *)strchr(cmd, '`');
+    if (!start) {
+        return result;
+    }
+
+    char new_cmd[MAX_COMMAND_LENGTH] = {0};
+    int new_cmd_len = 0;
+
+    // copy the part before the first backtick
+    strncpy(new_cmd, cmd, start - cmd);
+    new_cmd_len = start - cmd;
+
+    while (start) {
+        char *end = (char *)strchr(start + 1, '`');
+        if (!end) {
+            fprintf(2, "Error: Unmatched backtick\n");
+            *cmd = 0;
+            return cmd;
+        }
+        *end = 0;
+
+        int p[2];
+        if(pipe(p) < 0) {
+            fprintf(2, "process_backticks: Failed to create pipe\n");
+            exit();
+        }
+
+        int child = fork1();
+        if (child == 0) {
+            close(p[0]);
+            if (dup(p[1], 1) < 0) {
+                fprintf(2, "process_backticks: Failed to duplicate pipe write end\n");
+                close(p[1]);
+                exit();
+            }
+            close(p[1]);
+            runcmd(start + 1);
+            exit();
+        }
+
+        close(p[1]);
+
+        char output[MAX_COMMAND_LENGTH] = {0};
+        int output_len = 0;
+
+        char ch;
+        while (output_len < MAX_COMMAND_LENGTH - 1 &&
+                read(p[0], &ch, 1) == 1) {
+            // remove newlines from the output
+            if (ch == '\n') {
+                ch = ' ';
+            }
+            output[output_len++] = ch;
+        }
+
+        if (output_len >= MAX_COMMAND_LENGTH - 1) {
+            goto err;
+        }
+        output[output_len] = 0;
+
+        // append the output to the new command
+        for (int i = 0; i < output_len; i++) {
+            if (new_cmd_len + 1 < MAX_COMMAND_LENGTH) {
+                new_cmd[new_cmd_len++] = output[i];
+            } else {
+                goto err;
+            }
+        }
+
+        start = (char *)strchr(end + 1, '`');
+        char *remainder = end + 1;
+        int len_to_copy = start ? (start - end - 1) : strlen(remainder);
+
+        for (int i = 0; i < len_to_copy; i++) {
+            if (new_cmd_len + 1 < MAX_COMMAND_LENGTH) {
+                new_cmd[new_cmd_len++] = remainder[i];
+            } else {
+                goto err;
+            }
+        }
+
+        restore_01(storedFd);
+    }
+
+    new_cmd[new_cmd_len] = 0;
+    strcpy(cmd, new_cmd);
+    return cmd;
+
+err:
+    fprintf(2, "Error: Command too long\n");
+    *cmd = 0;  // clear the command
+    restore_01(storedFd);
+    return cmd;
+}
+
 int parsecmd(char **argv, int *rightpipe, int *isChild) {
     int argc = 0;
     char *t;
@@ -148,14 +247,14 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 return argc;
             case 'w':
                 if (argc >= MAXARGS) {
-                    debugf("too many arguments\n");
+                    fprintf(2, "too many arguments\n");
                     exit();
                 }
                 argv[argc++] = t;
                 break;
             case '<':
                 if (gettoken(0, &t) != 'w') {
-                    debugf("syntax error: < not followed by word\n");
+                    fprintf(2, "syntax error: < not followed by word\n");
                     exit();
                 }
 
@@ -166,7 +265,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 }
 
                 if ((fd = open(t, O_RDONLY)) < 0) {
-                    debugf("failed to open '%s'\n", t);
+                    fprintf(2, "failed to open '%s'\n", t);
                     exit();
                 }
                 dup(fd, 0);
@@ -175,7 +274,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 break;
             case '>':
                 if (gettoken(0, &t) != 'w') {
-                    debugf("syntax error: > not followed by word\n");
+                    fprintf(2, "syntax error: > not followed by word\n");
                     exit();
                 }
 
@@ -186,7 +285,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 }
 
                 if ((fd = open(t, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
-                    debugf("failed to open '%s'\n", t);
+                    fprintf(2, "failed to open '%s'\n", t);
                     exit();
                 }
                 dup(fd, 1);
@@ -196,7 +295,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
             case '|':;
                 int p[2];
                 if ((r = pipe(p)) != 0) {
-                    debugf("pipe: %d\n", r);
+                    fprintf(2, "pipe: %d\n", r);
                     exit();
                 }
                 r = fork1();
@@ -208,7 +307,6 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                     *isChild = 1;
                     return parsecmd(argv, rightpipe, isChild);
                 } else {
-                    // debugf("piperight: %d\n", r);
                     dup(p[1], 1);
                     close(p[1]);
                     close(p[0]);
@@ -227,7 +325,6 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 return argc;
 
                 break;
-
         }
     }
 
@@ -253,7 +350,13 @@ void runcmd(char *s) {
                 argv[1] = "/";
             case 2:
                 if ((r = chdir(argv[1])) < 0) {
-                    debugf("chdir %s: %d\n", argv[1], r);
+                    if(r == -E_NOT_FOUND){
+                        fprintf(2, "cd: The directory '%s' does not exist\n", argv[1]);
+                    }else if (r == -E_NOT_DIR) {
+                        fprintf(2, "cd: '%s' is not a directory\n", argv[1]);
+                    } else {
+                        fprintf(2, "cd failed %s: %d\n", argv[1], r);
+                    }
                 } else {
                     strcpy(cwd, (const char *)env->cwd_name);
                 }
@@ -285,15 +388,13 @@ void runcmd(char *s) {
         return;
     }
 
-    // debugf("reached before spawn: %d\n", env->env_id);
     int child = spawn(argv[0], argv);
     if (child >= 0) {
-        // debugf("spawn %s: %d\n", argv[0], child);
+        DEBUGF("spawn %s: %d\n", argv[0], child);
         wait(child);
     } else {
-        debugf("spawn %s: %d\n", argv[0], child);
+        fprintf(2, "spawn %s: %d\n", argv[0], child);
     }
-    // debugf("rightpipe: %d\n", rightpipe);
     if (rightpipe) {
         close(1);  // close write end of pipe
         wait(rightpipe);
@@ -302,7 +403,6 @@ void runcmd(char *s) {
         // child process, exit
         exit();
     }
-    // debugf("reached after spawn: %d\n", env->env_id);
 }
 
 void readline(char *buf, u_int n) {
@@ -315,7 +415,7 @@ void readline(char *buf, u_int n) {
     while (i + backbuf_i < n - 1) {
         if ((r = read(0, &c, 1)) != 1) {
             if (r < 0) {
-                debugf("read error: %d\n", r);
+                fprintf(2, "read error: %d\n", r);
             }
             exit();
         }
@@ -500,7 +600,7 @@ void readline(char *buf, u_int n) {
             state = NORMAL;
         }
     }
-    debugf("line too long\n");
+    fprintf(2, "line too long\n");
     while ((r = read(0, buf, 1)) == 1 && buf[0] != '\r' && buf[0] != '\n') {
         ;
     }
@@ -576,7 +676,8 @@ int main(int argc, char **argv) {
             printf("# %s\n", buf);
         }
 
-        runcmd(buf);
+        char* cmd = process_backticks(buf);
+        runcmd(cmd);
         // restore original 0/1 fd
         restore_01(storedFd);
     }
