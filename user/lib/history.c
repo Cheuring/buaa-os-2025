@@ -1,44 +1,25 @@
 #include <lib.h>
 #include <history.h>
 
+// todo: improve this
 int fgetline(int fd, char *buf, u_int n) {
-	char _buf[32];
-	int r;
-	u_int i = 0;
+	int i = 0;
+	char c;
 
-	if (n == 0) {
-		return 0; // no space to read
-	}
-
-	while (i < n - 1) {
-		if ((r = read(fd, _buf, sizeof(_buf))) <= 0) {
-			if (r < 0) {
-				debugf("read error: %d\n", r);
-			}
+	while (i < n - 1 && read(fd, &c, 1) > 0) {
+		if (c == '\n') {
 			break;
 		}
-		for (int j = 0; j < r; j++) {
-			if (_buf[j] == '\n') {
-				buf[i++] = '\0';
-				return i;
-			} else if (_buf[j] == '\r') {
-				continue; // ignore carriage return
-			} else {
-				buf[i++] = _buf[j];
-				if(i == n - 1) {
-					break;
-				}
-			}
-		}
+		buf[i++] = c;
 	}
+
 	buf[i] = '\0';
 
-	if (i == n - 1) {
-		debugf("line too long\n");
-		return -1;
+	if (i == 0 && c != '\n') {
+		return -1; // no data read
 	}
 
-	return i;
+	return i; // return number of characters read
 }
 
 void load_command_history(struct History *history) {
