@@ -2,6 +2,7 @@
 #define _USER_FD_H_ 1
 
 #include <fs.h>
+#include <types.h>
 
 #define debug 0
 

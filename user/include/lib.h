@@ -19,6 +19,7 @@ void exit(void) __attribute__((noreturn));
 extern const volatile struct Env *env;
 
 #define USED(x) (void)(x)
+#define C(x) ((x) - '@')  // Control-x
 
 // debugf
 void debugf(const char *fmt, ...);
@@ -68,6 +69,7 @@ int syscall_ipc_recv(void *dstva);
 int syscall_cgetc(void);
 int syscall_write_dev(void *va, u_int dev, u_int len);
 int syscall_read_dev(void *va, u_int dev, u_int len);
+int syscall_chdir(u_int envid, struct File *f, const char *path);
 
 // ipc.c
 void ipc_send(u_int whom, u_int val, const void *srcva, u_int perm);
@@ -100,6 +102,8 @@ int fsipc_dirty(u_int, u_int);
 int fsipc_remove(const char *);
 int fsipc_sync(void);
 int fsipc_incref(u_int);
+int fsipc_chdir(const char *);
+int fsipc_mkdir(const char *path, int isRecursive);
 
 // fd.c
 int close(int fd);
@@ -118,6 +122,8 @@ int read_map(int fd, u_int offset, void **blk);
 int remove(const char *path);
 int ftruncate(int fd, u_int size);
 int sync(void);
+int chdir(const char *path);
+int mkdir(const char *path, int isRecursive);
 
 #define user_assert(x)                                                                             \
 	do {                                                                                       \

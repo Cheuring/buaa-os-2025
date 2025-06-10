@@ -50,6 +50,10 @@ int main(int argc, char **argv) {
 	if ((r = dup(0, 1)) < 0) {
 		user_panic("dup: %d", r);
 	}
+	// stderr
+	if ((r = dup(0, 2)) < 0) {
+		user_panic("dup: %d", r);
+	}
 
 	while (1) {
 		debugf("init: starting sh\n");

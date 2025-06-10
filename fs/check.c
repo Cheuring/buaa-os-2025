@@ -39,13 +39,13 @@ static void fs_check() {
 	user_assert(!(bitmap[r / 32] & (1 << (r % 32))));
 	debugf("alloc_block is good\n");
 
-	if ((r = file_open("/not-found", &f)) < 0 && r != -E_NOT_FOUND) {
+	if ((r = file_open(0, "/not-found", &f)) < 0 && r != -E_NOT_FOUND) {
 		user_panic("file_open /not-found: %d", r);
 	} else if (r == 0) {
 		user_panic("file_open /not-found succeeded!");
 	}
 
-	if ((r = file_open("/newmotd", &f)) < 0) {
+	if ((r = file_open(0, "/newmotd", &f)) < 0) {
 		user_panic("file_open /newmotd: %d", r);
 	}
 

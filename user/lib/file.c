@@ -261,3 +261,11 @@ int remove(const char *path) {
 int sync(void) {
 	return fsipc_sync();
 }
+
+int chdir(const char *path) {
+	return fsipc_chdir(path);
+}
+
+int mkdir(const char *path, int isRecursive) {
+	return fsipc_mkdir(path, isRecursive);
+}

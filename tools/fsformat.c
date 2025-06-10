@@ -129,6 +129,7 @@ void init_disk() {
 	super.s_magic = FS_MAGIC;
 	super.s_nblocks = NBLOCK;
 	super.s_root.f_type = FTYPE_DIR;
+	super.s_root.f_dir = NULL;
 	strcpy(super.s_root.f_name, "/");
 }
 

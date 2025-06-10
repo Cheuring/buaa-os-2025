@@ -15,6 +15,16 @@ struct Dev devcons = {
     .dev_stat = cons_stat,
 };
 
+void coreDump() {
+    for (int i = 0; i < NENV; ++i) {
+        if (envs[i].env_status == ENV_FREE) {
+            continue;
+        }
+        debugf("env %d: status %d, cwd %s\n", envs[i].env_id,
+               envs[i].env_status, envs[i].cwd_name);
+    }
+}
+
 int iscons(int fdnum) {
 	int r;
 	struct Fd *fd;
@@ -51,11 +61,15 @@ int cons_read(struct Fd *fd, void *vbuf, u_int n, u_int offset) {
 		syscall_yield();
 	}
 
-	if (c != '\r') {
-		debugf("%c", c);
-	} else {
-		debugf("\n");
-	}
+	if (c == C('P')) {
+        coreDump();
+    }
+
+	// if (c != '\r') {
+	// 	debugf("%c", c);
+	// } else {
+	// 	debugf("\n");
+	// }
 	if (c < 0) {
 		return c;
 	}

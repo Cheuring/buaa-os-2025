@@ -7,6 +7,7 @@ uint32_t *bitmap;
 
 void file_flush(struct File *);
 int block_is_free(u_int);
+void simplify_path(char *);
 
 // Overview:
 //  Return the virtual address of this disk block in cache.
@@ -506,7 +507,7 @@ int dir_lookup(struct File *dir, char *name, struct File **file) {
 			// If we find the target file, set '*file' to it and set up its 'f_dir'
 			// field.
 			/* Exercise 5.8: Your code here. (3/3) */
-			if(strcmp(name, f->f_name) == 0){
+			if(strcmp(name, f->f_name) == 0) {
 				*file = f;
 				f->f_dir = dir;
 				return 0;
@@ -573,16 +574,27 @@ char *skip_slash(char *p) {
 //  the file is in.
 //  If we cannot find the file but find the directory it should be in, set
 //  *pdir and copy the final path element into lastelem.
-int walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem) {
+int walk_path(u_int envid, char *path, struct File **pdir, struct File **pfile, char *lastelem, u_int createParent) {
 	char *p;
 	char name[MAXNAMELEN];
 	struct File *dir, *file;
 	int r;
 
-	// start at the root.
-	path = skip_slash(path);
-	file = &super->s_root;
-	dir = 0;
+	simplify_path(path);
+
+	if(path[0] == '/') {
+		file = &super->s_root;
+		dir = 0;
+		path = skip_slash(path);
+	} else {
+		if (envid == 0) {
+			file = env->cwd;
+		} else {
+			file = envs[ENVX(envid)].cwd;
+		}
+		dir = file->f_dir;
+	}
+	// dir = 0;
 	name[0] = 0;
 
 	if (pdir) {
@@ -611,6 +623,18 @@ int walk_path(char *path, struct File **pdir, struct File **pfile, char *lastele
 			return -E_NOT_FOUND;
 		}
 
+		if(strcmp(name, ".") == 0) {
+			// skip current directory.
+			continue;
+		} else if (strcmp(name, "..") == 0) {
+			// go to parent directory.
+			if (dir->f_dir) {
+				file = dir->f_dir;
+				dir = dir->f_dir;
+			}
+			continue;
+		}
+
 		if ((r = dir_lookup(dir, name, &file)) < 0) {
 			if (r == -E_NOT_FOUND && *path == '\0') {
 				if (pdir) {
@@ -622,6 +646,18 @@ int walk_path(char *path, struct File **pdir, struct File **pfile, char *lastele
 				}
 
 				*pfile = 0;
+			} else if (r == -E_NOT_FOUND && *path && createParent) {
+				// if the file is not found, but we need to create it.
+				if ((r = dir_alloc_file(dir, &file)) < 0) {
+					return r;
+				}
+				// debugf("created file %s in directory %s\n", name, dir->f_name);
+				strcpy(file->f_name, name);
+				file->f_type = FTYPE_DIR;
+				file->f_size = 0;
+				file->f_indirect = 0;
+
+				continue;
 			}
 
 			return r;
@@ -642,8 +678,8 @@ int walk_path(char *path, struct File **pdir, struct File **pfile, char *lastele
 // Post-Condition:
 //  On success set *pfile to point at the file and return 0.
 //  On error return < 0.
-int file_open(char *path, struct File **file) {
-	return walk_path(path, 0, file, 0);
+int file_open(u_int envid, char *path, struct File **file) {
+	return walk_path(envid, path, 0, file, 0, 0);
 }
 
 // Overview:
@@ -652,12 +688,12 @@ int file_open(char *path, struct File **file) {
 // Post-Condition:
 //  On success set *file to point at the file and return 0.
 //  On error return < 0.
-int file_create(char *path, struct File **file) {
+int file_create(u_int envid, char *path, struct File **file) {
 	char name[MAXNAMELEN];
 	int r;
 	struct File *dir, *f;
 
-	if ((r = walk_path(path, &dir, &f, name)) == 0) {
+	if ((r = walk_path(envid, path, &dir, &f, name, 0)) == 0) {
 		return -E_FILE_EXISTS;
 	}
 
@@ -671,6 +707,39 @@ int file_create(char *path, struct File **file) {
 
 	strcpy(f->f_name, name);
 	*file = f;
+	return 0;
+}
+
+// Overview:
+//  Create a directory at "path".
+// Post-Condition:
+//  On success, return 0.
+//  On error, return < 0.
+int file_mkdir(u_int envid, char *path, int isRecursive) {
+	int r;
+	struct File *dir, *f;
+	const char* name;
+
+	if ((r = walk_path(envid, path, &dir, &f, 0, isRecursive)) == 0) {
+		return -E_FILE_EXISTS;
+	}
+
+	if (r != -E_NOT_FOUND || dir == 0) {
+		// debugf("file_mkdir: walk_path failed with %d\n", r);
+		return r;
+	}
+
+	if (dir_alloc_file(dir, &f) < 0) {
+		return r;
+	}
+
+	name = strrchr(path, '/');
+	strcpy(f->f_name, name ? name + 1 : path);
+	f->f_type = FTYPE_DIR;
+	f->f_size = 0;
+	f->f_indirect = 0;
+	// debugf("created directory %s\n", f->f_name);
+
 	return 0;
 }
 
@@ -793,12 +862,12 @@ void file_close(struct File *f) {
 
 // Overview:
 //  Remove a file by truncating it and then zeroing the name.
-int file_remove(char *path) {
+int file_remove(u_int envid, char *path) {
 	int r;
 	struct File *f;
 
 	// Step 1: find the file on the disk.
-	if ((r = walk_path(path, 0, &f, 0)) < 0) {
+	if ((r = walk_path(envid, path, 0, &f, 0, 0)) < 0) {
 		return r;
 	}
 
@@ -815,4 +884,70 @@ int file_remove(char *path) {
 	}
 
 	return 0;
+}
+
+void simplify_path(char *path) {
+    char *stack[1024];
+    int top = 0;
+    int is_absolute = (path[0] == '/');
+    int dotdot_count = 0;
+    char *token = path;
+
+    // Skip leading slashes
+    while(*token == '/') {
+        token++;
+    }
+
+    while(*token) {
+        char *start = token;
+
+        // Find the next slash or end of string
+        while(*token && *token != '/') token++;
+
+        int length = token - start;
+        if(length == 0) {
+            // skip
+        }else if(length == 1 && *start == '.') {
+            // Do nothing for '.'
+        } else if(length == 2 && start[0] == '.' && start[1] == '.') {
+            if(dotdot_count < top) {
+                -- top;
+            }else if(!is_absolute) {
+                stack[top++] = start;
+                if(*token == '/') {
+                    *token = '\0';
+                    token++;
+                }
+                dotdot_count++;
+            }
+        } else {
+            // Push valid segment onto stack
+            stack[top++] = start;
+            if(*token == '/') {
+                *token = '\0';
+                token++;
+            }
+        }
+
+        // Skip slashes
+        while(*token == '/') {
+            token++;
+        }
+    }
+
+    // Construct the simplified path
+    char *result = path;
+    if(is_absolute) {
+        *result++ = '/';
+    }
+    for(int i = 0; i < top; i++) {
+        while(*stack[i]) {
+            *result++ = *stack[i]++;
+        }
+        if(i < top - 1) {
+            *result++ = '/';
+        }
+    }
+    
+    *result = '\0';
 }
