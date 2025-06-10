@@ -12,6 +12,7 @@
 static struct History history;
 static char cwd[MAXPATHLEN];
 static int interactive;
+static int storedFd[2];
 
 #define PRINTF(...)              \
     do {                         \
@@ -104,6 +105,37 @@ int isDir(const char *path) {
     return st.st_isdir;
 }
 
+int fork1(void) {
+    int r;
+    if ((r = fork()) < 0) {
+        debugf("fork: %d\n", r);
+        exit();
+    }
+    return r;
+}
+
+static void store_01(int p[2]) {
+    int r;
+    if ((r = pipe(p)) < 0) {
+        user_panic("pipe: %d", r);
+    }
+    if ((r = dup(0, p[0])) < 0) {
+        user_panic("dup store: %d", r);
+    }
+    if ((r = dup(1, p[1])) < 0) {
+        user_panic("dup store: %d", r);
+    }
+}
+static void restore_01(int p[2]) {
+    int r;
+    if ((r = dup(p[0], 0)) < 0) {
+        user_panic("dup restore: %d", r);
+    }
+    if ((r = dup(p[1], 1)) < 0) {
+        user_panic("dup restore: %d", r);
+    }
+}
+
 int parsecmd(char **argv, int *rightpipe, int *isChild) {
     int argc = 0;
     char *t;
@@ -167,11 +199,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                     debugf("pipe: %d\n", r);
                     exit();
                 }
-                r = fork();
-                if (r < 0) {
-                    debugf("fork: %d\n", r);
-                    exit();
-                }
+                r = fork1();
                 *rightpipe = r;
                 if (r == 0) {
                     dup(p[0], 0);
@@ -188,6 +216,18 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 }
 
                 break;
+            case ';':
+                r = fork1();
+                if (r) {
+                    wait(r);
+                    restore_01(storedFd);
+                    return parsecmd(argv, rightpipe, isChild);
+                }
+                *isChild = 1;
+                return argc;
+
+                break;
+
         }
     }
 
@@ -475,7 +515,7 @@ void usage(void) {
 }
 
 int main(int argc, char **argv) {
-    int r, p[2];
+    int r;
     interactive = iscons(0);
     int echocmds = 0;
     char *comment;
@@ -519,15 +559,7 @@ int main(int argc, char **argv) {
     }
 
     // store original 0/1 fd
-    if ((r = pipe(p)) < 0) {
-        user_panic("pipe: %d", r);
-    }
-    if ((r = dup(0, p[0])) < 0) {
-        user_panic("dup: %d", r);
-    }
-    if ((r = dup(1, p[1])) < 0) {
-        user_panic("dup: %d", r);
-    }
+    store_01(storedFd);
 
     load_command_history(&history);
     strcpy(cwd, (const char *)env->cwd_name);
@@ -546,12 +578,7 @@ int main(int argc, char **argv) {
 
         runcmd(buf);
         // restore original 0/1 fd
-        if ((r = dup(p[0], 0)) < 0) {
-            user_panic("dup restore: %d", r);
-        }
-        if ((r = dup(p[1], 1)) < 0) {
-            user_panic("dup restore: %d", r);
-        }
+        restore_01(storedFd);
     }
     return 0;
 }
