@@ -264,6 +264,9 @@ void read_super(void) {
 		user_panic("file system is too large");
 	}
 
+	// set root's f_dir to 0.
+	super->s_root.f_dir = 0;
+
 	debugf("superblock is good\n");
 }
 

@@ -1,6 +1,6 @@
 
 INITAPPS +=
 
-USERLIB	+=
+USERLIB	+= history.o
 
-USERAPPS +=
+USERAPPS += touch.b mkdir.b
