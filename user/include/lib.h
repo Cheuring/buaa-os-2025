@@ -19,6 +19,7 @@ void exit(void) __attribute__((noreturn));
 extern const volatile struct Env *env;
 
 #define USED(x) (void)(x)
+#define C(x) ((x) - '@')  // Control-x
 
 // debugf
 void debugf(const char *fmt, ...);

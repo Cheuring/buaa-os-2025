@@ -8,17 +8,16 @@
 #define DEL 0x7f
 #define ESC 0x1b
 #define BACKSPACE 0x08
-#define C(x) ((x) - '@')  // Control-x
 
 static struct History history;
 static char cwd[MAXPATHLEN];
 static int interactive;
 
-#define PRINTF(...)                 \
-    do {                            \
-        if (interactive) {          \
-            printf(__VA_ARGS__);    \
-        }                           \
+#define PRINTF(...)              \
+    do {                         \
+        if (interactive) {       \
+            printf(__VA_ARGS__); \
+        }                        \
     } while (0)
 
 #define PUT_CHAR(c)                   \
@@ -94,7 +93,7 @@ int gettoken(char *s, char **p1) {
 
 #define MAXARGS 128
 
-int isDir(const char* path) {
+int isDir(const char *path) {
     struct Stat st;
     int r;
     if ((r = stat(path, &st)) < 0) {
@@ -105,7 +104,7 @@ int isDir(const char* path) {
     return st.st_isdir;
 }
 
-int parsecmd(char **argv, int *rightpipe) {
+int parsecmd(char **argv, int *rightpipe, int *isChild) {
     int argc = 0;
     char *t;
     int fd, r, c;
@@ -149,7 +148,7 @@ int parsecmd(char **argv, int *rightpipe) {
                 }
 
                 r = isDir(t);
-                if(r == 1) {
+                if (r == 1) {
                     fprintf(2, "bash: %s: Is a directory\n", t);
                     return 0;
                 }
@@ -163,23 +162,7 @@ int parsecmd(char **argv, int *rightpipe) {
 
                 break;
             case '|':;
-                /*
-                 * First, allocate a pipe.
-                 * Then fork, set '*rightpipe' to the returned child envid or
-                 * zero. The child runs the right side of the pipe:
-                 * - dup the read end of the pipe onto 0
-                 * - close the read end of the pipe
-                 * - close the write end of the pipe
-                 * - and 'return parsecmd(argv, rightpipe)' again, to parse the
-                 * rest of the command line. The parent runs the left side of
-                 * the pipe:
-                 * - dup the write end of the pipe onto 1
-                 * - close the write end of the pipe
-                 * - close the read end of the pipe
-                 * - and 'return argc', to execute the left of the pipeline.
-                 */
                 int p[2];
-                /* Exercise 6.5: Your code here. (3/3) */
                 if ((r = pipe(p)) != 0) {
                     debugf("pipe: %d\n", r);
                     exit();
@@ -194,8 +177,10 @@ int parsecmd(char **argv, int *rightpipe) {
                     dup(p[0], 0);
                     close(p[0]);
                     close(p[1]);
-                    return parsecmd(argv, rightpipe);
+                    *isChild = 1;
+                    return parsecmd(argv, rightpipe, isChild);
                 } else {
+                    // debugf("piperight: %d\n", r);
                     dup(p[1], 1);
                     close(p[1]);
                     close(p[0]);
@@ -213,9 +198,9 @@ void runcmd(char *s) {
     gettoken(s, 0);
 
     char *argv[MAXARGS];
-    int rightpipe = 0;
+    int rightpipe = 0, isChild = 0;
 
-    int argc = parsecmd(argv, &rightpipe);
+    int argc = parsecmd(argv, &rightpipe, &isChild);
     if (argc == 0) {
         return;
     }
@@ -260,17 +245,24 @@ void runcmd(char *s) {
         return;
     }
 
+    // debugf("reached before spawn: %d\n", env->env_id);
     int child = spawn(argv[0], argv);
-    // close_all();
     if (child >= 0) {
+        // debugf("spawn %s: %d\n", argv[0], child);
         wait(child);
     } else {
         debugf("spawn %s: %d\n", argv[0], child);
     }
+    // debugf("rightpipe: %d\n", rightpipe);
     if (rightpipe) {
+        close(1);  // close write end of pipe
         wait(rightpipe);
     }
-    // exit();
+    if (isChild) {
+        // child process, exit
+        exit();
+    }
+    // debugf("reached after spawn: %d\n", env->env_id);
 }
 
 void readline(char *buf, u_int n) {
@@ -296,7 +288,7 @@ void readline(char *buf, u_int n) {
                     // delete
                     if (i > 0) {
                         i--;
-                        if(interactive){
+                        if (interactive) {
                             printf("\b");
                             for (int k = backbuf_i - 1; k >= 0; k--) {
                                 PUT_CHAR(backbuf[k]);
@@ -351,7 +343,7 @@ void readline(char *buf, u_int n) {
                 case C('U'):
                     // clear line from start to cursor
                     if (i > 0) {
-                        if(interactive){
+                        if (interactive) {
                             printf("\r\033[K%s", PROMPT);
                             for (int k = backbuf_i - 1; k >= 0; k--) {
                                 PUT_CHAR(backbuf[k]);
@@ -378,7 +370,7 @@ void readline(char *buf, u_int n) {
                         }
 
                         if (i > temp_i) {
-                            if(interactive){
+                            if (interactive) {
                                 // move cursor
                                 printf("\033[%dD", i - temp_i);
                                 // clear till end of line
@@ -398,15 +390,18 @@ void readline(char *buf, u_int n) {
                     }
                     break;
 
+                case C('P'):
+                    break;
+
                 default:
                     buf[i++] = c;
-                    if(interactive){
+                    if (interactive) {
                         PUT_CHAR(c);
-                        
+
                         for (int k = backbuf_i - 1; k >= 0; k--) {
                             PUT_CHAR(backbuf[k]);
                         }
-                        
+
                         if (backbuf_i > 0) {
                             printf("\033[%dD", backbuf_i);
                         }
@@ -510,11 +505,17 @@ int main(int argc, char **argv) {
     }
 
     if (interactive) {
-        printf("\n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::\n");
-        printf("::                                                         ::\n");
-        printf("::                     MOS Shell 2024                      ::\n");
-        printf("::                                                         ::\n");
-        printf(":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::\n");
+        printf(
+            "\n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+            "\n");
+        printf(
+            "::                                                         ::\n");
+        printf(
+            "::                     MOS Shell 2024                      ::\n");
+        printf(
+            "::                                                         ::\n");
+        printf(
+            ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::\n");
     }
 
     // store original 0/1 fd
@@ -537,7 +538,7 @@ int main(int argc, char **argv) {
 
         comment = (char *)strchr(buf, '#');
         if (comment) {
-            *comment = 0; // truncate at comment
+            *comment = 0;  // truncate at comment
         }
         if (echocmds) {
             printf("# %s\n", buf);

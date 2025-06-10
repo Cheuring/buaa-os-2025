@@ -6,7 +6,7 @@
 
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_HISTORY_COMMANDS 20
-#define HISTORY_FILE "/.mosh_history"
+#define HISTORY_FILE "/.mos_history"
 
 #define CHECK_FD(fd) \
 	do { \
