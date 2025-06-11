@@ -64,6 +64,15 @@ int _gettoken(char *s, char **p1, char **p2) {
         return 0;
     }
 
+    // append redirection symbols
+    // if (*s == '>' && *(s + 1) == '>') {
+    //     *p1 = s;
+    //     *s++ = 0;
+    //     *s++ = 0;
+    //     *p2 = s;
+    //     return 'a';
+    // }
+
     if (strchr(SYMBOLS, *s)) {
         int t = *s;
         *p1 = s;
@@ -272,10 +281,16 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 close(fd);
 
                 break;
-            case '>':
-                if (gettoken(0, &t) != 'w') {
-                    fprintf(2, "syntax error: > not followed by word\n");
-                    exit();
+            case '>':;
+                int mode = O_TRUNC;
+                int sym = gettoken(0, &t);
+                if (sym != 'w') {
+                    if(sym != '>' || gettoken(0, &t) != 'w'){
+                        fprintf(2, "syntax error: >> not followed by word\n");
+                        // exit();
+                        return 0;
+                    }
+                    mode = O_APPEND;
                 }
 
                 r = isDir(t);
@@ -284,7 +299,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                     return 0;
                 }
 
-                if ((fd = open(t, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
+                if ((fd = open(t, O_WRONLY | O_CREAT | mode)) < 0) {
                     fprintf(2, "failed to open '%s'\n", t);
                     exit();
                 }
@@ -325,6 +340,24 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 return argc;
 
                 break;
+            // case 'a':
+            //     if (gettoken(0, &t) != 'w') {
+            //         fprintf(2, "syntax error: >> not followed by word\n");
+            //         exit();
+            //     }
+            //     r = isDir(t);
+            //     if (r == 1) {
+            //         fprintf(2, "bash: %s: Is a directory\n", t);
+            //         return 0;
+            //     }
+            //     if ((fd = open(t, O_WRONLY | O_CREAT | O_APPEND)) < 0) {
+            //         fprintf(2, "failed to open '%s'\n", t);
+            //         exit();
+            //     }
+            //     dup(fd, 1);
+            //     close(fd);
+
+            //     break;
         }
     }
 

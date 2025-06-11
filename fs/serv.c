@@ -174,6 +174,11 @@ void serve_open(u_int envid, struct Fsreq_open *rq) {
 		}
 	}
 
+	// If mode include O_APPEND, set the file size to the end of the file
+	if (rq->req_omode & O_APPEND) {
+		o->o_ff->f_fd.fd_offset = f->f_size;
+	}
+
 	// Fill out the Filefd structure
 	ff = (struct Filefd *)o->o_ff;
 	ff->f_file = *f;

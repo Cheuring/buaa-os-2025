@@ -143,9 +143,10 @@ int mkdir(const char *path, int isRecursive);
 #define O_ACCMODE 0x0003 /* mask for above modes */
 #define O_CREAT 0x0100	 /* create if nonexistent */
 #define O_TRUNC 0x0200	 /* truncate to zero length */
+#define O_APPEND 0x0400 /* append on each write */
 
 // Unimplemented open modes
-#define O_EXCL 0x0400  /* error if already exists */
-#define O_MKDIR 0x0800 /* create directory, not regular file */
+#define O_EXCL 0x0800  /* error if already exists */
+#define O_MKDIR 0x1000 /* create directory, not regular file */
 
 #endif
