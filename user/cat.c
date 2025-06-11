@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 		for (i = 1; i < argc; i++) {
 			f = open(argv[i], O_RDONLY);
 			if (f < 0) {
-				user_panic("can't open %s: %d", argv[i], f);
+				fprintf(2, "can't open %s: %d", argv[i], f);
 			} else {
 				cat(f, argv[i]);
 				close(f);

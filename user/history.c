@@ -66,7 +66,7 @@ void move_history_cursor(struct History *history, char *buf, int *edit_idx, int 
 	int cur = history->cursor + offset;
 	if(cur < 0 || cur <= history->write_index - MAX_HISTORY_COMMANDS) {
 		// out of bounds
-		debugf("history at the top: %d\n", cur);
+		DEBUGF("history at the top: %d\n", cur);
 		return;
 	}
 
@@ -80,7 +80,7 @@ void move_history_cursor(struct History *history, char *buf, int *edit_idx, int 
 
 	if(cur > history->write_index) {
 		// out of bounds
-		debugf("history at the bottom: %d\n", cur);
+		DEBUGF("history at the bottom: %d\n", cur);
 		return;
 	}
 
@@ -93,14 +93,12 @@ void stage_command(struct History *history, char *buf, int *i, char *backbuf, in
 	CHECK_FD(history->fd);
 
 	// not stage edited history 
-	if(history->cursor != history->write_index) {
-		return;
+	if(history->cursor == history->write_index) {
+		// copy the current command to the stage command
+		memcpy(history->stage_command, buf, *i);
+		memcpy(history->stage_command + (*i), backbuf, *backbuf_i);
+		history->stage_command[(*i) + (*backbuf_i)] = '\0';
 	}
-
-	// copy the current command to the stage command
-	memcpy(history->stage_command, buf, *i);
-	memcpy(history->stage_command + (*i), backbuf, *backbuf_i);
-	history->stage_command[(*i) + (*backbuf_i)] = '\0';
 
 	// reset index
 	*i = 0;
