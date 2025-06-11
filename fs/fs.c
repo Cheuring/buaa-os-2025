@@ -63,6 +63,20 @@ int dirty_block(u_int blockno) {
 	return syscall_mem_map(0, va, 0, va, PTE_D | PTE_DIRTY);
 }
 
+int clear_dirty_block(u_int blockno) {
+	void *va = disk_addr(blockno);
+
+	if (!va_is_mapped(va)) {
+		return -E_NOT_FOUND;
+	}
+
+	if (!va_is_dirty(va)) {
+		return 0;
+	}
+
+	return syscall_mem_map(0, va, 0, va, PTE_D);
+}
+
 // Overview:
 //  Write the current contents of the block out to disk.
 void write_block(u_int blockno) {
@@ -74,6 +88,7 @@ void write_block(u_int blockno) {
 	// Step2: write data to IDE disk. (using ide_write, and the diskno is 0)
 	void *va = disk_addr(blockno);
 	ide_write(0, blockno * SECT2BLK, va, SECT2BLK);
+	clear_dirty_block(blockno);
 }
 
 // Overview:
@@ -710,6 +725,7 @@ int file_create(u_int envid, char *path, struct File **file) {
 
 	strcpy(f->f_name, name);
 	*file = f;
+	f->f_type = FTYPE_REG;
 	return 0;
 }
 
