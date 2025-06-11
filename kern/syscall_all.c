@@ -5,6 +5,7 @@
 #include <printk.h>
 #include <sched.h>
 #include <syscall.h>
+#include "../user/include/variable.h"
 
 extern struct Env *curenv;
 void simplify_path(char *);
@@ -567,6 +568,14 @@ int sys_chdir(u_int envid, struct File *f, const char *path) {
 	return 0;
 }
 
+int sys_set_variable_set(void *vset) {
+	if (is_illegal_va_range((u_long)vset, sizeof(struct VariableSet))) {
+		return -E_INVAL;
+	}
+	curenv->variable_set = vset;
+	return 0;
+}
+
 void *syscall_table[MAX_SYSNO] = {
     [SYS_putchar] = sys_putchar,
     [SYS_print_cons] = sys_print_cons,
@@ -587,6 +596,7 @@ void *syscall_table[MAX_SYSNO] = {
     [SYS_write_dev] = sys_write_dev,
     [SYS_read_dev] = sys_read_dev,
 	[SYS_chdir] = sys_chdir,
+	[SYS_set_variable_set] = sys_set_variable_set,
 };
 
 /* Overview:

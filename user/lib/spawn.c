@@ -2,6 +2,7 @@
 #include <env.h>
 #include <lib.h>
 #include <mmu.h>
+#include <variable.h>
 
 #define debug 0
 
@@ -110,7 +111,7 @@ static int spawn_mapper(void *data, u_long va, size_t offset, u_int perm, const 
 int spawn(char *prog, char **argv) {
 	// Step 1: Open the file 'prog' (the path of the program).
 	// Return the error if 'open' fails.
-	int fd;
+	int fd, isShell = 0;
 	if ((fd = open(prog, O_RDONLY)) < 0) {
 		int len = strlen(prog);
 		if(len < 2 || (len < MAXPATHLEN - 2 && (prog[len - 1] != 'b' || prog[len - 2] != '.'))) {
@@ -125,6 +126,11 @@ int spawn(char *prog, char **argv) {
 		}else{
 			return fd;
 		}
+	}
+
+	// Check if the program is 'shell' and set 'isShell' accordingly.
+	if (strcmp(prog, "sh") == 0 || strcmp(prog, "sh.b") == 0) {
+		isShell = 1;
 	}
 
 	// Step 2: Read the ELF header (of type 'Elf32_Ehdr') from the file into 'elfbuf' using
@@ -220,6 +226,27 @@ int spawn(char *prog, char **argv) {
 				}
 			}
 		}
+	}
+
+	// Step 6: if the child is shell, copy the global variable set to the child.
+	if (isShell && env->variable_set) {
+		if((r = syscall_mem_alloc(0, (void *)UTEMP, PTE_D)) < 0) {
+			debugf("spawn: syscall_mem_alloc %x: %d\n", child, r);
+			goto err2;
+		}
+		struct VariableSet *vset = (struct VariableSet *)UTEMP;
+		vset->exportIdx = 0;  // Reset export index
+		copy_vars(vset, env->variable_set);
+		// memcpy(vset, env->variable_set, sizeof(struct VariableSet));
+		if((r = syscall_mem_map(0, (void *)UTEMP, child, (void *)UTEMP, PTE_D)) < 0) {
+			debugf("spawn: syscall_mem_map %x: %d\n", child, r);
+			goto err2;
+		}
+		if((r = syscall_mem_unmap(0, (void *)UTEMP)) < 0) {
+			debugf("spawn: syscall_set_variable_set %x: %d\n", child, r);
+			goto err2;
+		}
+		DEBUGF("spawn: copy_vars to child %d\n", child);
 	}
 
 	if ((r = syscall_set_env_status(child, ENV_RUNNABLE)) < 0) {

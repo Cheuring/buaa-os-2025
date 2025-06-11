@@ -1,6 +1,7 @@
 #include <args.h>
 #include <history.h>
 #include <lib.h>
+#include <variable.h>
 
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
@@ -10,6 +11,7 @@
 #define BACKSPACE 0x08
 
 static struct History history;
+static struct VariableSet variable_set;
 static char cwd[MAXPATHLEN];
 static int interactive;
 static int storedFd[2];
@@ -171,7 +173,7 @@ char *process_backticks(char *cmd) {
         *end = 0;
 
         int p[2];
-        if(pipe(p) < 0) {
+        if (pipe(p) < 0) {
             fprintf(2, "process_backticks: Failed to create pipe\n");
             exit();
         }
@@ -180,7 +182,9 @@ char *process_backticks(char *cmd) {
         if (child == 0) {
             close(p[0]);
             if (dup(p[1], 1) < 0) {
-                fprintf(2, "process_backticks: Failed to duplicate pipe write end\n");
+                fprintf(
+                    2,
+                    "process_backticks: Failed to duplicate pipe write end\n");
                 close(p[1]);
                 exit();
             }
@@ -195,8 +199,7 @@ char *process_backticks(char *cmd) {
         int output_len = 0;
 
         char ch;
-        while (output_len < MAX_COMMAND_LENGTH - 1 &&
-                read(p[0], &ch, 1) == 1) {
+        while (output_len < MAX_COMMAND_LENGTH - 1 && read(p[0], &ch, 1) == 1) {
             // remove newlines from the output
             if (ch == '\n') {
                 ch = ' ';
@@ -244,6 +247,51 @@ err:
     return cmd;
 }
 
+int declare(int argc, char **argv) {
+    int export_flag = 0, readonly_flag = 0;
+    char *name = NULL, *value = NULL;
+
+    ARGBEGIN {
+        case 'x':
+            export_flag = 1;
+            break;
+        case 'r':
+            readonly_flag = 1;
+            break;
+    }
+    ARGEND
+
+    if (argc == 0) {
+        print_vars(&variable_set);
+        return 0;
+    }
+
+    name = argv[0];
+    value = (char *)strchr(argv[0], '=');
+    if (!value || name == value || !*(value + 1)) {
+        // If no '=' found or name is empty or value is empty
+        fprintf(2, "declare: syntax error: expected name=value\n");
+        return -E_INVAL;
+    }
+
+    *value++ = 0;
+    return declare_var(&variable_set, name, value, export_flag, readonly_flag);
+}
+
+int unset(int argc, char **argv) {
+    if (argc == 1) {
+        fprintf(2, "unset: expected at least one argument\n");
+        return -E_INVAL;
+    }
+
+    for (int i = 1; i < argc; i++) {
+        if (unset_var(&variable_set, argv[i]) < 0) {
+            fprintf(2, "unset: failed to unset variable '%s'\n", argv[i]);
+        }
+    }
+    return 0;
+}
+
 int parsecmd(char **argv, int *rightpipe, int *isChild) {
     int argc = 0;
     char *t;
@@ -285,7 +333,8 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
             case 'a':;
                 int mode = c == '>' ? O_TRUNC : O_APPEND;
                 if (gettoken(0, &t) != 'w') {
-                    fprintf(2, "syntax error: %s not followed by word\n", c == '>' ? ">" : ">>");
+                    fprintf(2, "syntax error: %s not followed by word\n",
+                            c == '>' ? ">" : ">>");
                     // exit();
                     return 0;
                 }
@@ -356,15 +405,17 @@ void runcmd(char *s) {
     argv[argc] = 0;
 
     int r;
+    // todo: exit if is child
     if (strcmp("cd", argv[0]) == 0) {
         switch (argc) {
             case 1:
                 argv[1] = "/";
             case 2:
                 if ((r = chdir(argv[1])) < 0) {
-                    if(r == -E_NOT_FOUND){
-                        fprintf(2, "cd: The directory '%s' does not exist\n", argv[1]);
-                    }else if (r == -E_NOT_DIR) {
+                    if (r == -E_NOT_FOUND) {
+                        fprintf(2, "cd: The directory '%s' does not exist\n",
+                                argv[1]);
+                    } else if (r == -E_NOT_DIR) {
                         fprintf(2, "cd: '%s' is not a directory\n", argv[1]);
                     } else {
                         fprintf(2, "cd failed %s: %d\n", argv[1], r);
@@ -401,6 +452,16 @@ void runcmd(char *s) {
     }
     if (strcmp("exit", argv[0]) == 0) {
         exit();
+    }
+    if (strcmp("declare", argv[0]) == 0) {
+        declare(argc, argv);
+
+        return;
+    }
+    if (strcmp("unset", argv[0]) == 0) {
+        unset(argc, argv);
+
+        return;
     }
 
     int child = spawn(argv[0], argv);
@@ -677,7 +738,9 @@ int main(int argc, char **argv) {
     store_01(storedFd);
 
     load_command_history(&history);
+    init_vars(&variable_set);
     strcpy(cwd, (const char *)env->cwd_name);
+
     for (;;) {
         PRINTF("\n%s", PROMPT);
         readline(buf, sizeof buf);
@@ -691,7 +754,12 @@ int main(int argc, char **argv) {
             printf("# %s\n", buf);
         }
 
-        char* cmd = process_backticks(buf);
+        if (expand_vars(&variable_set, buf) < 0) {
+            fprintf(2, "Error: Variable expansion failed\n");
+            DEBUGF("expand_vars failed: %s\n", buf);
+            continue;
+        }
+        char *cmd = process_backticks(buf);
         runcmd(cmd);
         // restore original 0/1 fd
         restore_01(storedFd);

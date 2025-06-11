@@ -78,3 +78,7 @@ int syscall_read_dev(void *va, u_int dev, u_int size) {
 int syscall_chdir(u_int envid, struct File *f, const char *path) {
 	return msyscall(SYS_chdir, envid, f, path);
 }
+
+int syscall_set_variable_set(void *vset) {
+	return msyscall(SYS_set_variable_set, vset);
+}

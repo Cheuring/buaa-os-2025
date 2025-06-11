@@ -11,5 +11,6 @@ char *strncpy(char *dst, const char *src, size_t n);
 const char *strchr(const char *s, int c);
 const char *strrchr(const char *s, int c);
 int strcmp(const char *p, const char *q);
+int isalnum(int c);
 
 #endif

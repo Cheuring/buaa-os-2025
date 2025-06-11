@@ -46,7 +46,7 @@ void _user_halt(const char *, int, const char *, ...) __attribute__((noreturn));
 
 /// fork, spawn
 int spawn(char *prog, char **argv);
-int spawnl(char *prot, char *args, ...);
+int spawnl(char *prog, char *args, ...);
 int fork(void);
 
 /// syscalls
@@ -75,6 +75,7 @@ int syscall_cgetc(void);
 int syscall_write_dev(void *va, u_int dev, u_int len);
 int syscall_read_dev(void *va, u_int dev, u_int len);
 int syscall_chdir(u_int envid, struct File *f, const char *path);
+int syscall_set_variable_set(void *vset);
 
 // ipc.c
 void ipc_send(u_int whom, u_int val, const void *srcva, u_int perm);

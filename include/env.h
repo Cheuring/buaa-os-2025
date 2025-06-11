@@ -44,6 +44,7 @@ struct Env {
 	// for shell challenge
 	struct File *cwd;
 	char cwd_name[MAXPATHLEN];
+	void *variable_set; // only used in spawn
 };
 
 LIST_HEAD(Env_list, Env);
