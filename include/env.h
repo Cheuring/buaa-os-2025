@@ -15,6 +15,7 @@
 #define ENV_FREE 0
 #define ENV_RUNNABLE 1
 #define ENV_NOT_RUNNABLE 2
+#define ENV_DYING 3 // child exited, but parent not waiting
 
 // Control block of an environment (process).
 struct Env {
@@ -45,11 +46,14 @@ struct Env {
 	struct File *cwd;
 	char cwd_name[MAXPATHLEN];
 	void *variable_set; // only used in spawn
+	LIST_ENTRY(Env) env_dying_link; // intrusive entry in 'env_dying_list'
+	int exit_status; // exit status of the env
 };
 
 LIST_HEAD(Env_list, Env);
 TAILQ_HEAD(Env_sched_list, Env);
 extern struct Env *curenv;		     // the current env
+extern struct Env_list env_free_list; // free env list
 extern struct Env_sched_list env_sched_list; // runnable env list
 
 void env_init(void);

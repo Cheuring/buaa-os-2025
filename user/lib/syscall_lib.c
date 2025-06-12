@@ -82,3 +82,7 @@ int syscall_chdir(u_int envid, struct File *f, const char *path) {
 int syscall_set_variable_set(void *vset) {
 	return msyscall(SYS_set_variable_set, vset);
 }
+
+int syscall_set_exit_status(int status) {
+	return msyscall(SYS_set_exit_status, status);
+}

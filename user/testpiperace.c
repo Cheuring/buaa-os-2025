@@ -37,7 +37,7 @@ int main() {
 		for (i = 0; i < max; i++) {
 			if (pipe_is_closed(p[0])) {
 				debugf("RACE: pipe appears closed\n");
-				exit();
+				exit(1);
 			}
 			syscall_yield();
 		}

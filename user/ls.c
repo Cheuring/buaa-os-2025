@@ -62,7 +62,7 @@ void ls1(char *prefix, u_int isdir, u_int size, char *name) {
 
 void usage(void) {
 	printf("usage: ls [-dFl] [file...]\n");
-	exit();
+	exit(1);
 }
 
 int main(int argc, char **argv) {

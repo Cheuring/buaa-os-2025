@@ -14,7 +14,7 @@
 #define pages ((const volatile struct Page *)UPAGES)
 
 // libos
-void exit(void) __attribute__((noreturn));
+void exit(int) __attribute__((noreturn));
 
 extern const volatile struct Env *env;
 
@@ -76,13 +76,14 @@ int syscall_write_dev(void *va, u_int dev, u_int len);
 int syscall_read_dev(void *va, u_int dev, u_int len);
 int syscall_chdir(u_int envid, struct File *f, const char *path);
 int syscall_set_variable_set(void *vset);
+int syscall_set_exit_status(int status);
 
 // ipc.c
 void ipc_send(u_int whom, u_int val, const void *srcva, u_int perm);
 u_int ipc_recv(u_int *whom, void *dstva, u_int *perm);
 
 // wait.c
-void wait(u_int envid);
+int wait(u_int envid);
 
 // console.c
 int opencons(void);

@@ -28,7 +28,7 @@ int main() {
 		} else {
 			debugf("\ngot %d bytes: %s\n", i, buf);
 		}
-		exit();
+		exit(0);
 	} else {
 		debugf("[%08x] pipe_readeof close %d\n", env->env_id, p[0]);
 		close(p[0]);

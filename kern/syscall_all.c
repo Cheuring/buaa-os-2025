@@ -271,7 +271,7 @@ int sys_set_env_status(u_int envid, u_int status) {
 
 	/* Step 1: Check if 'status' is valid. */
 	/* Exercise 4.14: Your code here. (1/3) */
-	if(status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE)
+	if(status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE && status != ENV_FREE)
 		return -E_INVAL;
 	/* Step 2: Convert the envid to its corresponding 'struct Env *' using 'envid2env'. */
 	/* Exercise 4.14: Your code here. (2/3) */
@@ -281,8 +281,12 @@ int sys_set_env_status(u_int envid, u_int status) {
 	if(env->env_status != status){
 		if(status == ENV_RUNNABLE){
 			TAILQ_INSERT_TAIL(&env_sched_list, env, env_sched_link);
-		}else{
+		}else if (status == ENV_NOT_RUNNABLE){
 			TAILQ_REMOVE(&env_sched_list, env, env_sched_link);
+		}else{
+			LIST_REMOVE(env, env_dying_link);
+			LIST_INSERT_HEAD(&env_free_list, env, env_link);
+			printk("[%d] env %d is free\n", curenv ? curenv->env_id : 0, env->env_id);
 		}
 	}
 	/* Step 4: Set the 'env_status' of 'env'. */
@@ -576,6 +580,11 @@ int sys_set_variable_set(void *vset) {
 	return 0;
 }
 
+int syscall_set_exit_status(int status) {
+	curenv->exit_status = status;
+	return 0;
+}
+
 void *syscall_table[MAX_SYSNO] = {
     [SYS_putchar] = sys_putchar,
     [SYS_print_cons] = sys_print_cons,
@@ -597,6 +606,7 @@ void *syscall_table[MAX_SYSNO] = {
     [SYS_read_dev] = sys_read_dev,
 	[SYS_chdir] = sys_chdir,
 	[SYS_set_variable_set] = sys_set_variable_set,
+	[SYS_set_exit_status] = syscall_set_exit_status,
 };
 
 /* Overview:

@@ -85,7 +85,7 @@ void remove_file(char *path, int recursive, int force) {
 
 void usage(void) {
     fprintf(2, "usage: rm [-rf] [file...]\n");
-    exit();
+    exit(1);
 }
 
 int main(int argc, char **argv) {

@@ -143,7 +143,7 @@ int fork1(void) {
     int r;
     if ((r = fork()) < 0) {
         debugf("fork: %d\n", r);
-        exit();
+        exit(1);
     }
     DEBUGF("fork1: %d\n", r);
     return r;
@@ -197,7 +197,7 @@ char *process_backticks(char *cmd) {
         int p[2];
         if (pipe(p) < 0) {
             fprintf(2, "process_backticks: Failed to create pipe\n");
-            exit();
+            exit(1);
         }
 
         int child = fork1();
@@ -208,11 +208,11 @@ char *process_backticks(char *cmd) {
                     2,
                     "process_backticks: Failed to duplicate pipe write end\n");
                 close(p[1]);
-                exit();
+                exit(1);
             }
             close(p[1]);
             runcmd(start + 1);
-            exit();
+            exit(0);
         }
 
         close(p[1]);
@@ -282,14 +282,14 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
             case 'w':
                 if (argc >= MAXARGS) {
                     fprintf(2, "too many arguments\n");
-                    exit();
+                    exit(1);
                 }
                 argv[argc++] = t;
                 break;
             case '<':
                 if (gettoken(0, &t) != 'w') {
                     fprintf(2, "syntax error: < not followed by word\n");
-                    exit();
+                    exit(1);
                 }
 
                 r = isDir(t);
@@ -300,7 +300,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
 
                 if ((fd = open(t, O_RDONLY)) < 0) {
                     fprintf(2, "failed to open '%s'\n", t);
-                    exit();
+                    exit(1);
                 }
                 dup(fd, 0);
                 close(fd);
@@ -312,8 +312,8 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 if (gettoken(0, &t) != 'w') {
                     fprintf(2, "syntax error: %s not followed by word\n",
                             c == '>' ? ">" : ">>");
-                    // exit();
-                    return 0;
+                    exit(1);
+                    // return 0;
                 }
 
                 r = isDir(t);
@@ -324,7 +324,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
 
                 if ((fd = open(t, O_WRONLY | O_CREAT | mode)) < 0) {
                     fprintf(2, "failed to open '%s'\n", t);
-                    exit();
+                    exit(1);
                 }
                 dup(fd, 1);
                 close(fd);
@@ -334,7 +334,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 int p[2];
                 if ((r = pipe(p)) != 0) {
                     fprintf(2, "pipe: %d\n", r);
-                    exit();
+                    exit(1);
                 }
                 r = fork1();
                 *rightpipe = r;
@@ -403,7 +403,7 @@ void runcmd(char *s) {
     }
     if (isChild) {
         // child process, exit
-        exit();
+        exit(0);
     }
 }
 
@@ -419,7 +419,7 @@ void readline(char *buf, u_int n) {
             if (r < 0) {
                 fprintf(2, "read error: %d\n", r);
             }
-            exit();
+            exit(1);
         }
 
     back:
@@ -613,7 +613,7 @@ char buf[MAX_COMMAND_LENGTH];
 
 void usage(void) {
     printf("usage: sh [-ix] [script-file]\n");
-    exit();
+    exit(1);
 }
 
 int main(int argc, char **argv) {
@@ -803,5 +803,5 @@ int _exit(int argc, char **argv) {
 
     // save history before exiting
     save_command_history(&history);
-    exit();
+    exit(0);
 }

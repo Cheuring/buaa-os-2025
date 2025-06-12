@@ -3,7 +3,7 @@
 
 static void usage(void) {
 	printf("usage: mkdir [-p] <directory...>\n");
-	exit();
+	exit(1);
 }
 
 int main(int argc, char **argv) {
