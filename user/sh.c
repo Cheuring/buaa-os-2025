@@ -17,6 +17,27 @@ static int interactive;
 static int storedFd[2];
 
 void runcmd(char *);
+int _declare(int, char **);
+int _unset(int, char **);
+int _cd(int, char **);
+int _pwd(int, char **);
+int _history(int, char **);
+int _exit(int, char **);
+
+struct BuiltinCmd {
+    const char *name;
+    int (*func)(int, char **);
+};
+
+static struct BuiltinCmd builtin_cmds[] = {
+    {"cd", _cd},
+    {"pwd", _pwd},
+    {"history", _history},
+    {"declare", _declare},
+    {"unset", _unset},
+    {"exit", _exit},
+    {0, 0}  // Sentinel
+};
 
 #define PRINTF(...)              \
     do {                         \
@@ -48,6 +69,7 @@ void runcmd(char *);
  *     - '>' for > (stdout redirection).
  *     - '|' for | (pipe).
  *     - 'w' for a word (command, argument, or file name).
+ *     - 'a' for >> (append redirection).
  *
  *   The buffer is modified to turn the spaces after words into zero bytes
  * ('\0'), so that the returned token is a null-terminated string.
@@ -247,51 +269,6 @@ err:
     return cmd;
 }
 
-int declare(int argc, char **argv) {
-    int export_flag = 0, readonly_flag = 0;
-    char *name = NULL, *value = NULL;
-
-    ARGBEGIN {
-        case 'x':
-            export_flag = 1;
-            break;
-        case 'r':
-            readonly_flag = 1;
-            break;
-    }
-    ARGEND
-
-    if (argc == 0) {
-        print_vars(&variable_set);
-        return 0;
-    }
-
-    name = argv[0];
-    value = (char *)strchr(argv[0], '=');
-    if (!value || name == value || !*(value + 1)) {
-        // If no '=' found or name is empty or value is empty
-        fprintf(2, "declare: syntax error: expected name=value\n");
-        return -E_INVAL;
-    }
-
-    *value++ = 0;
-    return declare_var(&variable_set, name, value, export_flag, readonly_flag);
-}
-
-int unset(int argc, char **argv) {
-    if (argc == 1) {
-        fprintf(2, "unset: expected at least one argument\n");
-        return -E_INVAL;
-    }
-
-    for (int i = 1; i < argc; i++) {
-        if (unset_var(&variable_set, argv[i]) < 0) {
-            fprintf(2, "unset: failed to unset variable '%s'\n", argv[i]);
-        }
-    }
-    return 0;
-}
-
 int parsecmd(char **argv, int *rightpipe, int *isChild) {
     int argc = 0;
     char *t;
@@ -406,62 +383,11 @@ void runcmd(char *s) {
 
     int r;
     // todo: exit if is child
-    if (strcmp("cd", argv[0]) == 0) {
-        switch (argc) {
-            case 1:
-                argv[1] = "/";
-            case 2:
-                if ((r = chdir(argv[1])) < 0) {
-                    if (r == -E_NOT_FOUND) {
-                        fprintf(2, "cd: The directory '%s' does not exist\n",
-                                argv[1]);
-                    } else if (r == -E_NOT_DIR) {
-                        fprintf(2, "cd: '%s' is not a directory\n", argv[1]);
-                    } else {
-                        fprintf(2, "cd failed %s: %d\n", argv[1], r);
-                    }
-                } else {
-                    strcpy(cwd, (const char *)env->cwd_name);
-                }
-
-                break;
-
-            default:
-                fprintf(2, "Too many args for cd command\n");
+    for (int i = 0; builtin_cmds[i].name; i++) {
+        if (strcmp(argv[0], builtin_cmds[i].name) == 0) {
+            r = builtin_cmds[i].func(argc, argv);
+            return;
         }
-
-        return;
-    }
-    if (strcmp("pwd", argv[0]) == 0) {
-        if (argc > 1) {
-            fprintf(2, "pwd: expected 0 arguments; got %d\n", argc - 1);
-        } else {
-            printf("%s\n", cwd);
-        }
-
-        return;
-    }
-    if (strcmp("history", argv[0]) == 0) {
-        if (argc > 1) {
-            fprintf(2, "history: expected 0 arguments; got %d\n", argc - 1);
-        } else {
-            show_history(&history);
-        }
-
-        return;
-    }
-    if (strcmp("exit", argv[0]) == 0) {
-        exit();
-    }
-    if (strcmp("declare", argv[0]) == 0) {
-        declare(argc, argv);
-
-        return;
-    }
-    if (strcmp("unset", argv[0]) == 0) {
-        unset(argc, argv);
-
-        return;
     }
 
     int child = spawn(argv[0], argv);
@@ -765,4 +691,117 @@ int main(int argc, char **argv) {
         restore_01(storedFd);
     }
     return 0;
+}
+
+int _declare(int argc, char **argv) {
+    int export_flag = 0, readonly_flag = 0;
+    char *name = NULL, *value = NULL;
+
+    ARGBEGIN {
+        case 'x':
+            export_flag = 1;
+            break;
+        case 'r':
+            readonly_flag = 1;
+            break;
+    }
+    ARGEND
+
+    if (argc == 0) {
+        print_vars(&variable_set);
+        return 0;
+    }
+
+    name = argv[0];
+    value = (char *)strchr(argv[0], '=');
+    if (!value || name == value || !*(value + 1)) {
+        // If no '=' found or name is empty or value is empty
+        fprintf(2, "declare: syntax error: expected name=value\n");
+        return -E_INVAL;
+    }
+
+    *value++ = 0;
+    return declare_var(&variable_set, name, value, export_flag, readonly_flag);
+}
+
+int _unset(int argc, char **argv) {
+    // int r;
+    // if (argc == 1) {
+    //     fprintf(2, "unset: expected at least one argument\n");
+    //     return -E_INVAL;
+    // }
+
+    // for (int i = 1; i < argc; i++) {
+    //     if ((r = unset_var(&variable_set, argv[i])) < 0) {
+    //         fprintf(2, "unset: failed to unset variable '%s'\n", argv[i]);
+    //         return r;
+    //     }
+    // }
+    if(argc != 2) {
+        fprintf(2, "unset: expected 1 argument; got %d\n", argc - 1);
+        return -E_INVAL;
+    }
+
+    return unset_var(&variable_set, argv[1]);
+}
+
+int _cd(int argc, char **argv) {
+    int r;
+    switch (argc) {
+        case 1:
+            argv[1] = "/";
+        case 2:
+            if ((r = chdir(argv[1])) < 0) {
+                if (r == -E_NOT_FOUND) {
+                    fprintf(2, "cd: The directory '%s' does not exist\n",
+                            argv[1]);
+                } else if (r == -E_NOT_DIR) {
+                    fprintf(2, "cd: '%s' is not a directory\n", argv[1]);
+                } else {
+                    fprintf(2, "cd failed %s: %d\n", argv[1], r);
+                }
+
+                return r;
+            }
+            strcpy(cwd, (const char *)env->cwd_name);
+
+            break;
+
+        default:
+            fprintf(2, "Too many args for cd command\n");
+            return -E_INVAL;
+    }
+
+    return 0;
+}
+
+int _pwd(int argc, char **argv) {
+    if (argc > 1) {
+        fprintf(2, "pwd: expected 0 arguments; got %d\n", argc - 1);
+        return -E_INVAL;
+    }
+
+    printf("%s\n", cwd);
+    return 0;
+}
+
+int _history(int argc, char **argv) {
+    if (argc > 1) {
+        fprintf(2, "history: expected 0 arguments; got %d\n", argc - 1);
+        return -E_INVAL;
+    }
+
+    show_history(&history);
+    return 0;
+}
+
+int _exit(int argc, char **argv) {
+    if (argc > 1) {
+        fprintf(2, "exit: expected 0 arguments; got %d\n", argc - 1);
+        return -E_INVAL;
+    }
+
+    // save history before exiting
+    save_command_history(&history);
+    exit();
 }

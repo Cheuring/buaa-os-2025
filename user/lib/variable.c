@@ -143,9 +143,12 @@ int unset_var(struct VariableSet *vset, char *name) {
 
 void _print_var(struct Variable *var) {
     if (var == NULL) return;
-    printf("%s=%s\t%s%s\n", var->name, var->value,
-           (var->mode & V_RDONLY) ? "-r" : "",
-           (var->mode & V_EXPORT) ? "-x" : "");
+    // printf(
+    //     "%c%c  %s=%s\n",
+    //     (var->mode & V_EXPORT) ? 'E' : 'L',  // E for exported, L for local
+    //     (var->mode & V_RDONLY) ? 'R' : ' ',  // R for read-only, space otherwise
+    //     var->name, var->value);
+    printf("%s=%s\n", var->name, var->value);
 }
 
 void print_vars(struct VariableSet *vset) {

@@ -1,6 +1,6 @@
 
 INITAPPS +=
 
-USERLIB	+= history.o variable.o
+USERLIB	+= lib/history.o lib/variable.o
 
 USERAPPS += touch.b mkdir.b rm.b
