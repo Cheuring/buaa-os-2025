@@ -70,11 +70,20 @@ static struct BuiltinCmd builtin_cmds[] = {
  *     - '|' for | (pipe).
  *     - 'w' for a word (command, argument, or file name).
  *     - 'a' for >> (append redirection).
+ *     - 'A' for && (logical AND).
+ *     - 'O' for || (logical OR).
  *
  *   The buffer is modified to turn the spaces after words into zero bytes
  * ('\0'), so that the returned token is a null-terminated string.
  */
 int _gettoken(char *s, char **p1, char **p2) {
+    static const struct {
+        char c1;
+        char c2;
+        int ret_val;
+    } double_char_tokens[] = {
+        {'>', '>', 'a'}, {'&', '&', 'A'}, {'|', '|', 'O'}, {0, 0, 0}};
+
     *p1 = 0;
     *p2 = 0;
     if (s == 0) {
@@ -88,13 +97,15 @@ int _gettoken(char *s, char **p1, char **p2) {
         return 0;
     }
 
-    // append redirection symbols
-    if (*s == '>' && *(s + 1) == '>') {
-        *p1 = s;
-        *s++ = 0;
-        *s++ = 0;
-        *p2 = s;
-        return 'a';
+    for (int i = 0; double_char_tokens[i].c1 != 0; ++i) {
+        if (*s == double_char_tokens[i].c1 &&
+            *(s + 1) == double_char_tokens[i].c2) {
+            *p1 = s;
+            *s++ = 0;
+            *s++ = 0;
+            *p2 = s;
+            return double_char_tokens[i].ret_val;
+        }
     }
 
     if (strchr(SYMBOLS, *s)) {
@@ -360,9 +371,25 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                     return parsecmd(argv, rightpipe, isChild);
                 }
                 *isChild = 1;
-                return argc;
 
-                break;
+                return argc;
+            case 'A':
+            case 'O':;
+                // logical AND or OR
+                int child = fork1();
+                if (child == 0) {
+                    // child process
+                    *isChild = 1;
+                    return argc;
+                }
+
+                r = wait(child);
+                DEBUGF("wait %d: %d\n", child, r);
+                if ((c == 'A' && r == 0) || (c == 'O' && r != 0)) {
+                    return parsecmd(argv, rightpipe, isChild);
+                }
+
+                return 0;
         }
     }
 
@@ -386,24 +413,28 @@ void runcmd(char *s) {
     for (int i = 0; builtin_cmds[i].name; i++) {
         if (strcmp(argv[0], builtin_cmds[i].name) == 0) {
             r = builtin_cmds[i].func(argc, argv);
-            return;
+            goto out;
         }
     }
 
     int child = spawn(argv[0], argv);
     if (child >= 0) {
         DEBUGF("spawn %s: %d\n", argv[0], child);
-        wait(child);
+        r = wait(child);
     } else {
         fprintf(2, "spawn %s: %d\n", argv[0], child);
     }
+
+out:
     if (rightpipe) {
         close(1);  // close write end of pipe
-        wait(rightpipe);
+        // only if both side of the pipe exit successfully
+        // the exit status will be 0
+        r |= wait(rightpipe);
     }
     if (isChild) {
         // child process, exit
-        exit(0);
+        exit(r);
     }
 }
 
@@ -737,7 +768,7 @@ int _unset(int argc, char **argv) {
     //         return r;
     //     }
     // }
-    if(argc != 2) {
+    if (argc != 2) {
         fprintf(2, "unset: expected 1 argument; got %d\n", argc - 1);
         return -E_INVAL;
     }

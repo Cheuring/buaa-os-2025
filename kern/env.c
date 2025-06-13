@@ -419,7 +419,7 @@ void env_free(struct Env *e) {
 			p->env_status = ENV_FREE;
 			LIST_REMOVE(p, env_dying_link);
 			LIST_INSERT_HEAD(&env_free_list, p, env_link);
-			printk("[%d] child env %d of %d is free\n", curenv ? curenv->env_id : 0,
+			DEBUGF("[%d] child env %d of %d is free\n", curenv ? curenv->env_id : 0,
 			       p->env_id, e->env_id);
 		}
 	}
@@ -432,7 +432,7 @@ void env_free(struct Env *e) {
 		e->env_status = ENV_DYING;
 		LIST_INSERT_HEAD(&env_dying_list, (e), env_dying_link);
 		TAILQ_REMOVE(&env_sched_list, (e), env_sched_link);
-		printk("[%d] env %d is dying, parent %d\n", curenv ? curenv->env_id : 0,
+		DEBUGF("[%d] env %d is dying, parent %d\n", curenv ? curenv->env_id : 0,
 		       e->env_id, parent_id);
 		return;
 	}
