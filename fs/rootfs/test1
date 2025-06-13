@@ -1,0 +1,24 @@
+pwd
+/mkdir.b /dir1
+cd /dir1
+/mkdir.b .././dir1/dir2
+cd ./dir2
+pwd
+cd ..
+pwd
+/touch.b ../file1
+/ls.b /dir1 > ../file1
+/cat.b ../file1
+/rm.b ../file1
+/rm.b ../file1
+/rm.b -rf ../file1
+/rm.b ./dir2
+/rm.b -r ./dir2
+cd ./dir2
+/mkdir.b ./dir2/dir3
+/mkdir.b -p ./dir2/dir3
+cd ./dir2/dir3
+pwd
+/touch.b file1
+/touch.b dir4/file1
+#/halt.b

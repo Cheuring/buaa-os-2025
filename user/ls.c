@@ -10,7 +10,8 @@ void ls(char *path, char *prefix) {
 	struct Stat st;
 
 	if ((r = stat(path, &st)) < 0) {
-		user_panic("stat %s: %d", path, r);
+		fprintf(2, "stat %s: %d", path, r);
+		exit(1);
 	}
 	if (st.st_isdir && !flag['d']) {
 		lsdir(path, prefix);
@@ -24,7 +25,8 @@ void lsdir(char *path, char *prefix) {
 	struct File f;
 
 	if ((fd = open(path, O_RDONLY)) < 0) {
-		user_panic("open %s: %d", path, fd);
+		fprintf(2, "open %s: %d", path, fd);
+		exit(1);
 	}
 	while ((n = readn(fd, &f, sizeof f)) == sizeof f) {
 		if (f.f_name[0]) {
@@ -32,10 +34,12 @@ void lsdir(char *path, char *prefix) {
 		}
 	}
 	if (n > 0) {
-		user_panic("short read in directory %s", path);
+		fprintf(2, "short read in directory %s", path);
+		exit(1);
 	}
 	if (n < 0) {
-		user_panic("error reading directory %s: %d", path, n);
+		fprintf(2, "error reading directory %s: %d", path, n);
+		exit(1);
 	}
 }
 
@@ -45,14 +49,14 @@ void ls1(char *prefix, u_int isdir, u_int size, char *name) {
 	if (flag['l']) {
 		printf("%11d %c ", size, isdir ? 'd' : '-');
 	}
-	// if (prefix) {
-	// 	if (prefix[0] && prefix[strlen(prefix) - 1] != '/') {
-	// 		sep = "/";
-	// 	} else {
-	// 		sep = "";
-	// 	}
-	// 	printf("%s%s", prefix, sep);
-	// }
+	if (prefix) {
+		if (prefix[0] && prefix[strlen(prefix) - 1] != '/') {
+			sep = "/";
+		} else {
+			sep = "";
+		}
+		printf("%s%s", prefix, sep);
+	}
 	printf("%s", name);
 	if (flag['F'] && isdir) {
 		printf("/");

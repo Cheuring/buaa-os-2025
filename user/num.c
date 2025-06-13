@@ -14,14 +14,16 @@ void num(int f, const char *s) {
 			bol = 0;
 		}
 		if ((r = printf("%c", c)) != 1) {
-			user_panic("write error copying %s: %d", s, r);
+			fprintf(2, "write error copying %s: %d", s, r);
+			exit(1);
 		}
 		if (c == '\n') {
 			bol = 1;
 		}
 	}
 	if (n < 0) {
-		user_panic("error reading %s: %d", s, n);
+		fprintf(2, "error reading %s: %d", s, n);
+		exit(1);
 	}
 }
 
@@ -34,7 +36,8 @@ int main(int argc, char **argv) {
 		for (i = 1; i < argc; i++) {
 			f = open(argv[i], O_RDONLY);
 			if (f < 0) {
-				user_panic("can't open %s: %d", argv[i], f);
+				fprintf(2, "can't open %s: %d", argv[i], f);
+				exit(1);
 			} else {
 				num(f, argv[i]);
 				close(f);

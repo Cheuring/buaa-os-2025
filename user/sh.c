@@ -239,6 +239,8 @@ char *process_backticks(char *cmd) {
             }
             output[output_len++] = ch;
         }
+        close(p[0]);
+        wait(child);
 
         if (output_len >= MAX_COMMAND_LENGTH - 1) {
             goto err;

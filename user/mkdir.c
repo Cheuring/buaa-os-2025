@@ -27,9 +27,11 @@ int main(int argc, char **argv) {
 		if((r = mkdir(argv[i], p_flag)) < 0) {
 			// debugf("mkdir %s: %d\n", argv[i], r);
 			if(r == -E_FILE_EXISTS && !p_flag) {
-				printf("mkdir: cannot create directory %s: File exists\n", argv[i]);
+				fprintf(2, "mkdir: cannot create directory '%s': File exists\n", argv[i]);
+				exit(1);
 			} else if(r == -E_NOT_FOUND) {
-				printf("mkdir: cannot create directory %s: No such file or directory\n", argv[i]);
+				fprintf(2, "mkdir: cannot create directory '%s': No such file or directory\n", argv[i]);
+				exit(1);
 			}
 		}
 	}

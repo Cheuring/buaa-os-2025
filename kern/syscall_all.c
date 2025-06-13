@@ -541,10 +541,14 @@ int sys_read_dev(u_int va, u_int pa, u_int len) {
 int set_cwd_name(char *cwd_name, const char *path) {
 	char temp[MAXPATHLEN * 2];
 
-	int len = strlen(cwd_name);
-	strcpy(temp, cwd_name);
-	temp[len] = '/';
-	strcpy(temp + len + 1, path);
+	if (*path != '/') {
+		int len = strlen(cwd_name);
+		strcpy(temp, cwd_name);
+		temp[len] = '/';
+		strcpy(temp + len + 1, path);
+	} else {
+		strcpy(temp, path);
+	}
 
 	simplify_path(temp);
 	if (strlen(temp) >= MAXPATHLEN) {

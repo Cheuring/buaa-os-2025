@@ -1,0 +1,16 @@
+/mkdir -p /dir1/dir2
+cd /dir1
+pwd
+/echo `/ls /dir1 | /cat`
+/mkdir `/ls /dir1 | /cat`
+/mkdir `pwd`
+/echo `/ls /dir1 | /cat` > file1
+/echo `/ls /dir1 | /cat` >> file1
+/cat file1
+/mkdir `pwd` && /ls /dir1
+/ls /dir1 && /ls /dir1
+/mkdir `pwd` || /mkdir -p /dir3
+/ls /dir1 || /ls /dir1
+cd /dir3
+pwd
+#/halt

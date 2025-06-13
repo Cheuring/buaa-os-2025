@@ -4,7 +4,7 @@ int main(int argc, char **argv) {
 	int i, fd, r;
 
 	if (argc < 2) {
-		printf("Usage: touch <file1> [file2 ...]\n");
+		fprintf(2, "Usage: touch <file1> [file2 ...]\n");
 		exit(1);
 	}
 
@@ -17,10 +17,12 @@ int main(int argc, char **argv) {
 			// File was created successfully.
 			r = close(fd);
 			if (r < 0) {
-				printf("touch: failed to close %s (error %d)\n", argv[i], r);
+				fprintf(2, "touch: failed to close %s (error %d)\n", argv[i], r);
+				exit(1);
 			}
 		} else if (fd == -E_NOT_FOUND) {
-            printf("touch: cannot touch '%s': No such file or directory\n", argv[i]);
+            fprintf(2, "touch: cannot touch '%s': No such file or directory\n", argv[i]);
+			exit(1);
 		}
 	}
 

@@ -112,6 +112,8 @@ int spawn(char *prog, char **argv) {
 	// Step 1: Open the file 'prog' (the path of the program).
 	// Return the error if 'open' fails.
 	int fd, isShell = 0;
+	struct Stat st;
+
 	if ((fd = open(prog, O_RDONLY)) < 0) {
 		int len = strlen(prog);
 		if(len < 2 || (len < MAXPATHLEN - 2 && (prog[len - 1] != 'b' || prog[len - 2] != '.'))) {
@@ -129,7 +131,8 @@ int spawn(char *prog, char **argv) {
 	}
 
 	// Check if the program is 'shell' and set 'isShell' accordingly.
-	if (strcmp(prog, "sh") == 0 || strcmp(prog, "sh.b") == 0) {
+	panic_on(fstat(fd, &st));
+	if (strcmp(st.st_name, "sh.b") == 0) {
 		isShell = 1;
 	}
 

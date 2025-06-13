@@ -9,6 +9,7 @@ void remove_file(char *path, int recursive, int force) {
         if (!force) {
             fprintf(2, "rm: cannot remove '%s': No such file or directory\n",
                     path);
+            exit(1);
         }
         return;
     }
@@ -17,7 +18,8 @@ void remove_file(char *path, int recursive, int force) {
     if (st.st_isdir) {
         if (!recursive) {
             fprintf(2, "rm: cannot remove '%s': Is a directory\n", path);
-            return;
+            // return;
+            exit(1);
         }
 
         // 递归删除目录内容
@@ -27,6 +29,7 @@ void remove_file(char *path, int recursive, int force) {
         if ((fd = open(path, O_RDONLY)) < 0) {
             if (!force) {
                 fprintf(2, "rm: cannot open '%s': %d\n", path, fd);
+                exit(1);
             }
             return;
         }
@@ -56,7 +59,8 @@ void remove_file(char *path, int recursive, int force) {
                     path[original_len] = '\0';
                     fprintf(2, "rm: path too long for '%s/%s'\n", path,
                             f.f_name);
-                    continue;
+                    // continue;
+                    exit(1);
                 }
                 path[current_len] = '\0';
 
@@ -68,9 +72,11 @@ void remove_file(char *path, int recursive, int force) {
         }
         if (n < 0) {
             fprintf(2, "rm: error reading directory '%s': %d\n", path, n);
+            exit(1);
         }
         if (n > 0) {
             fprintf(2, "rm: short read in directory '%s'\n", path);
+            exit(1);
         }
 
         close(fd);
@@ -79,6 +85,7 @@ void remove_file(char *path, int recursive, int force) {
     // 删除文件或空目录
     if ((r = remove(path)) < 0 && !force) {
         fprintf(2, "rm: cannot remove '%s': %d\n", path, r);
+        exit(1);
     }
     DEBUGF("rm: removed '%s'\n", path);
 }
