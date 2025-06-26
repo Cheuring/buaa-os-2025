@@ -5,7 +5,7 @@
 
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
-#define PROMPT "mos> "
+#define PROMPT "\033[01;93mMOS\033[0m \033[36m%s\033[0m ❯ "
 #define DEL 0x7f
 #define ESC 0x1b
 #define BACKSPACE 0x08
@@ -421,7 +421,7 @@ void runcmd(char *s) {
         DEBUGF("spawn %s: %d\n", argv[0], child);
         r = wait(child);
     } else {
-        fprintf(2, "spawn %s: %d\n", argv[0], child);
+        fprintf(2, "%s: command not found\n", argv[0]);
     }
 
 out:
@@ -516,7 +516,7 @@ void readline(char *buf, u_int n) {
                     // clear line from start to cursor
                     if (i > 0) {
                         if (interactive) {
-                            printf("\r\033[K%s", PROMPT);
+                            printf("\r\033[K" PROMPT, cwd);
                             for (int k = backbuf_i - 1; k >= 0; k--) {
                                 PUT_CHAR(backbuf[k]);
                             }
@@ -594,7 +594,7 @@ void readline(char *buf, u_int n) {
                     // get previous command
                     move_history_cursor(&history, buf, &i, backbuf, &backbuf_i, -1);
                     // print the command
-                    PRINTF("\r\033[K%s%s", PROMPT, buf);
+                    PRINTF("\r\033[K" PROMPT "%s", cwd, buf);
                     if (backbuf_i > 0) {
                         for (int k = backbuf_i - 1; k >= 0; k--) {
                             PUT_CHAR(backbuf[k]);
@@ -607,7 +607,7 @@ void readline(char *buf, u_int n) {
                     // get next command
                     move_history_cursor(&history, buf, &i, backbuf, &backbuf_i, 1);
                     // print the command
-                    PRINTF("\r\033[K%s%s", PROMPT, buf);
+                    PRINTF("\r\033[K" PROMPT "%s", cwd, buf);
                     if (backbuf_i > 0) {
                         for (int k = backbuf_i - 1; k >= 0; k--) {
                             PUT_CHAR(backbuf[k]);
@@ -685,17 +685,28 @@ int main(int argc, char **argv) {
     }
 
     if (interactive) {
-        printf(
-            "\n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
-            "\n");
-        printf(
-            "::                                                         ::\n");
-        printf(
-            "::                     MOS Shell 2024                      ::\n");
-        printf(
-            "::                                                         ::\n");
-        printf(
-            ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::\n");
+		printf("\033[31m          _____                    _____                    _____                    _____            _____  \n"
+			"         /\\    \\                  /\\    \\                  /\\    \\                  /\\    \\          /\\    \\ \n"
+			"        /::\\    \\                /::\\____\\                /::\\    \\                /::\\____\\        /::\\____\\\n"
+			"       /::::\\    \\              /:::/    /               /::::\\    \\              /:::/    /       /:::/    /\n"
+			"      /::::::\\    \\            /:::/    /               /::::::\\    \\            /:::/    /       /:::/    / \n"
+			"     /:::/\\:::\\    \\          /:::/    /               /:::/\\:::\\    \\          /:::/    /       /:::/    /  \n"
+			"    /:::/__\\:::\\    \\        /:::/____/               /:::/__\\:::\\    \\        /:::/    /       /:::/    /   \n"
+			"    \\:::\\   \\:::\\    \\      /::::\\    \\              /::::\\   \\:::\\    \\      /:::/    /       /:::/    /    \n"
+			"  ___\\:::\\   \\:::\\    \\    /::::::\\    \\   _____    /::::::\\   \\:::\\    \\    /:::/    /       /:::/    /     \n"
+			" /\\   \\:::\\   \\:::\\    \\  /:::/\\:::\\    \\ /\\    \\  /:::/\\:::\\   \\:::\\    \\  /:::/    /       /:::/    /      \n"
+			"/::\\   \\:::\\   \\:::\\____\\/:::/  \\:::\\    /::\\____\\/:::/__\\:::\\   \\:::\\____\\/:::/____/       /:::/____/       \n"
+			"\\:::\\   \\:::\\   \\::/    /\\::/    \\:::\\  /:::/    /\\:::\\   \\:::\\   \\::/    /\\:::\\    \\       \\:::\\    \\       \n"
+			" \\:::\\   \\:::\\   \\/____/  \\/____/ \\:::\\/:::/    /  \\:::\\   \\:::\\   \\/____/  \\:::\\    \\       \\:::\\    \\      \n"
+			"  \\:::\\   \\:::\\    \\               \\::::::/    /    \\:::\\   \\:::\\    \\       \\:::\\    \\       \\:::\\    \\     \n"
+			"   \\:::\\   \\:::\\____\\               \\::::/    /      \\:::\\   \\:::\\____\\       \\:::\\    \\       \\:::\\    \\    \n"
+			"    \\:::\\  /:::/    /               /:::/    /        \\:::\\   \\::/    /        \\:::\\    \\       \\:::\\    \\   \n"
+			"     \\:::\\/:::/    /               /:::/    /          \\:::\\   \\/____/          \\:::\\    \\       \\:::\\    \\  \n"
+			"      \\::::::/    /               /:::/    /            \\:::\\    \\               \\:::\\    \\       \\:::\\    \\ \n"
+			"       \\::::/    /               /:::/    /              \\:::\\____\\               \\:::\\____\\       \\:::\\____\\\n"
+			"        \\::/    /                \\::/    /                \\::/    /                \\::/    /        \\::/    /\n"
+			"         \\/____/                  \\/____/                  \\/____/                  \\/____/          \\/____/ \n"
+			"                                                                                                             \n\033[0m");
     }
 
     // store original 0/1 fd
@@ -706,7 +717,7 @@ int main(int argc, char **argv) {
     strcpy(cwd, (const char *)env->cwd_name);
 
     for (;;) {
-        PRINTF("\n%s", PROMPT);
+        PRINTF("\n" PROMPT, cwd);
         readline(buf, sizeof buf);
         add_history(&history, buf);
 
