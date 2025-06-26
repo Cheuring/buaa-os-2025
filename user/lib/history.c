@@ -60,12 +60,27 @@ void save_command_history(struct History *history) {
 	}
 }
 
-void move_history_cursor(struct History *history, char *buf, int *edit_idx, int offset) {
+static void stage_command(struct History *history, char *buf, int i, char *backbuf, int backbuf_i) {
+	// if is not new command, do nothing
+	if (history->cursor != history->write_index) {
+		return;
+	}
+
+	// copy the current command to the stage command
+	memcpy(history->stage_command, buf, i);
+	for (int j = backbuf_i - 1; j >= 0; j--) {
+		history->stage_command[i++] = backbuf[j];
+	}
+	history->stage_command[i] = '\0';
+}
+
+void move_history_cursor(struct History *history, char *buf, int *i, char *backbuf, int *backbuf_i, int offset) {
 	CHECK_FD(history->fd);
 
 	int cur = history->cursor + offset;
 	if(cur < 0 || cur <= history->write_index - MAX_HISTORY_COMMANDS) {
 		// out of bounds
+		buf[*i] = 0;
 		DEBUGF("history at the top: %d\n", cur);
 		return;
 	}
@@ -73,35 +88,23 @@ void move_history_cursor(struct History *history, char *buf, int *edit_idx, int 
 	if(cur == history->write_index) {
 		// if we are at the end, just pop the stage command
 		memcpy(buf, history->stage_command, MAX_COMMAND_LENGTH);
-		*edit_idx = strlen(buf);
-		history->cursor = cur;
-		return;
+		goto out;
 	}
 
 	if(cur > history->write_index) {
 		// out of bounds
+		buf[*i] = 0;
 		DEBUGF("history at the bottom: %d\n", cur);
 		return;
 	}
 
+	// stage the current command
+	stage_command(history, buf, *i, backbuf, *backbuf_i);
+	// pop the command from history
 	memcpy(buf, history->buffer[cur % MAX_HISTORY_COMMANDS], MAX_COMMAND_LENGTH);
-	*edit_idx = strlen(buf);
+out:
+	*i = strlen(buf);
 	history->cursor = cur;
-}
-
-void stage_command(struct History *history, char *buf, int *i, char *backbuf, int *backbuf_i) {
-	CHECK_FD(history->fd);
-
-	// not stage edited history 
-	if(history->cursor == history->write_index) {
-		// copy the current command to the stage command
-		memcpy(history->stage_command, buf, *i);
-		memcpy(history->stage_command + (*i), backbuf, *backbuf_i);
-		history->stage_command[(*i) + (*backbuf_i)] = '\0';
-	}
-
-	// reset index
-	*i = 0;
 	*backbuf_i = 0;
 }
 

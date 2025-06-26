@@ -6,9 +6,9 @@
 
 void printk(const char *fmt, ...);
 #ifdef DEBUG
-#define DEBUGF(...) printk(__VA_ARGS__)
+#define DEBUGK(...) printk(__VA_ARGS__)
 #else
-#define DEBUGF(...) ((void)0)
+#define DEBUGK(...) ((void)0)
 #endif
 
 void _panic(const char *, int, const char *, const char *, ...)

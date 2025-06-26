@@ -24,12 +24,10 @@ int _pwd(int, char **);
 int _history(int, char **);
 int _exit(int, char **);
 
-struct BuiltinCmd {
+static struct {
     const char *name;
     int (*func)(int, char **);
-};
-
-static struct BuiltinCmd builtin_cmds[] = {
+} builtin_cmds[] = {
     {"cd", _cd},
     {"pwd", _pwd},
     {"history", _history},
@@ -411,7 +409,6 @@ void runcmd(char *s) {
     argv[argc] = 0;
 
     int r;
-    // todo: exit if is child
     for (int i = 0; builtin_cmds[i].name; i++) {
         if (strcmp(argv[0], builtin_cmds[i].name) == 0) {
             r = builtin_cmds[i].func(argc, argv);
@@ -594,21 +591,29 @@ void readline(char *buf, u_int n) {
             switch (c) {
                 case 'A':
                     // up arrow
-                    // stage command
-                    stage_command(&history, buf, &i, backbuf, &backbuf_i);
                     // get previous command
-                    move_history_cursor(&history, buf, &i, -1);
+                    move_history_cursor(&history, buf, &i, backbuf, &backbuf_i, -1);
                     // print the command
                     PRINTF("\r\033[K%s%s", PROMPT, buf);
+                    if (backbuf_i > 0) {
+                        for (int k = backbuf_i - 1; k >= 0; k--) {
+                            PUT_CHAR(backbuf[k]);
+                        }
+                        PRINTF("\033[%dD", backbuf_i);
+                    }
                     break;
                 case 'B':
                     // down arrow
-                    // stage command
-                    stage_command(&history, buf, &i, backbuf, &backbuf_i);
                     // get next command
-                    move_history_cursor(&history, buf, &i, 1);
+                    move_history_cursor(&history, buf, &i, backbuf, &backbuf_i, 1);
                     // print the command
                     PRINTF("\r\033[K%s%s", PROMPT, buf);
+                    if (backbuf_i > 0) {
+                        for (int k = backbuf_i - 1; k >= 0; k--) {
+                            PUT_CHAR(backbuf[k]);
+                        }
+                        PRINTF("\033[%dD", backbuf_i);
+                    }
                     break;
                 case 'C':
                     // right arrow

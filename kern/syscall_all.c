@@ -286,7 +286,7 @@ int sys_set_env_status(u_int envid, u_int status) {
 		}else{
 			LIST_REMOVE(env, env_dying_link);
 			LIST_INSERT_HEAD(&env_free_list, env, env_link);
-			DEBUGF("[%d] env %d is free\n", curenv ? curenv->env_id : 0, env->env_id);
+			DEBUGK("[%d] env %d is free\n", curenv ? curenv->env_id : 0, env->env_id);
 		}
 	}
 	/* Step 4: Set the 'env_status' of 'env'. */

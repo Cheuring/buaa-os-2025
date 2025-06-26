@@ -29,8 +29,7 @@ struct History {
 int fgetline(int fd, char *buf, u_int n);
 void load_command_history(struct History *history);
 void save_command_history(struct History *history);
-void move_history_cursor(struct History *history, char *buf, int *edit_idx, int offset);
-void stage_command(struct History *history, char *buf, int *i, char *backbuf, int *backbuf_i);
+void move_history_cursor(struct History *history, char *buf, int *i, char *backbuf, int *backbuf_i, int offset);
 void add_history(struct History *history, char *buf);
 void show_history(struct History *history);
 
