@@ -55,6 +55,7 @@ struct Filefd {
 };
 
 int fd_alloc(struct Fd **fd);
+int fd_count(void);
 int fd_lookup(int fdnum, struct Fd **fd);
 void *fd2data(struct Fd *);
 int fd2num(struct Fd *);

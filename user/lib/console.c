@@ -23,6 +23,8 @@ void coreDump() {
         debugf("env %d: status %d, cwd %s\n", envs[i].env_id,
                envs[i].env_status, envs[i].cwd_name);
     }
+	debugf("current env: %d, status %d, cwd %s, fd_count %d\n", env->env_id,
+	       env->env_status, env->cwd_name, fd_count());
 }
 
 int iscons(int fdnum) {

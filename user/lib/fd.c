@@ -52,6 +52,22 @@ int fd_alloc(struct Fd **fd) {
 	return -E_MAX_OPEN;
 }
 
+int fd_count(void) {
+	int i;
+	u_int va;
+	int count = 0;
+
+	for (i = 0; i < MAXFD; i++) {
+		va = INDEX2FD(i);
+
+		if ((vpd[va / PDMAP] & PTE_V) != 0 && (vpt[va / PTMAP] & PTE_V) != 0) {
+			count++;
+		}
+	}
+
+	return count;
+}
+
 void fd_close(struct Fd *fd) {
 	panic_on(syscall_mem_unmap(0, fd));
 }

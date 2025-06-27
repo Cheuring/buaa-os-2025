@@ -14,7 +14,6 @@ static struct History history;
 static struct VariableSet variable_set;
 static char cwd[MAXPATHLEN];
 static int interactive;
-static int storedFd[2];
 
 void runcmd(char *);
 int _declare(int, char **);
@@ -189,6 +188,8 @@ char *process_backticks(char *cmd) {
 
     char new_cmd[MAX_COMMAND_LENGTH] = {0};
     int new_cmd_len = 0;
+    int storedFd[2];
+    store_01(storedFd);
 
     // copy the part before the first backtick
     strncpy(new_cmd, cmd, start - cmd);
@@ -199,7 +200,7 @@ char *process_backticks(char *cmd) {
         if (!end) {
             fprintf(2, "Error: Unmatched backtick\n");
             *cmd = 0;
-            return cmd;
+            goto out_backticks;
         }
         *end = 0;
 
@@ -271,16 +272,19 @@ char *process_backticks(char *cmd) {
 
     new_cmd[new_cmd_len] = 0;
     strcpy(cmd, new_cmd);
-    return cmd;
+    goto out_backticks;
 
 err:
     fprintf(2, "Error: Command too long\n");
     *cmd = 0;  // clear the command
+out_backticks:
     restore_01(storedFd);
+    close(storedFd[0]);
+    close(storedFd[1]);
     return cmd;
 }
 
-int parsecmd(char **argv, int *rightpipe, int *isChild) {
+int parsecmd(char **argv, int *rightpipe, int *isChild, int *hasMore) {
     int argc = 0;
     char *t;
     int fd, r, c;
@@ -354,7 +358,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                     close(p[0]);
                     close(p[1]);
                     *isChild = 1;
-                    return parsecmd(argv, rightpipe, isChild);
+                    return parsecmd(argv, rightpipe, isChild, hasMore);
                 } else {
                     dup(p[1], 1);
                     close(p[1]);
@@ -364,13 +368,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
 
                 break;
             case ';':
-                r = fork1();
-                if (r) {
-                    wait(r);
-                    restore_01(storedFd);
-                    return parsecmd(argv, rightpipe, isChild);
-                }
-                *isChild = 1;
+                *hasMore = 1;
 
                 return argc;
             case 'A':
@@ -386,7 +384,7 @@ int parsecmd(char **argv, int *rightpipe, int *isChild) {
                 r = wait(child);
                 DEBUGF("wait %d: %d\n", child, r);
                 if ((c == 'A' && r == 0) || (c == 'O' && r != 0)) {
-                    return parsecmd(argv, rightpipe, isChild);
+                    return parsecmd(argv, rightpipe, isChild, hasMore);
                 }
 
                 return 0;
@@ -400,15 +398,19 @@ void runcmd(char *s) {
     gettoken(s, 0);
 
     char *argv[MAXARGS];
+    int argc, r, child, hasMore;
     int rightpipe = 0, isChild = 0;
+    int storedFd[2];
+    store_01(storedFd);
 
-    int argc = parsecmd(argv, &rightpipe, &isChild);
+begin:
+    hasMore = 0;
+    argc = parsecmd(argv, &rightpipe, &isChild, &hasMore);
     if (argc == 0) {
         return;
     }
     argv[argc] = 0;
 
-    int r;
     for (int i = 0; builtin_cmds[i].name; i++) {
         if (strcmp(argv[0], builtin_cmds[i].name) == 0) {
             r = builtin_cmds[i].func(argc, argv);
@@ -416,7 +418,7 @@ void runcmd(char *s) {
         }
     }
 
-    int child = spawn(argv[0], argv);
+    child = spawn(argv[0], argv);
     if (child >= 0) {
         DEBUGF("spawn %s: %d\n", argv[0], child);
         r = wait(child);
@@ -431,10 +433,19 @@ out:
         // the exit status will be 0
         r |= wait(rightpipe);
     }
+    if (hasMore) {
+        restore_01(storedFd);
+        goto begin;
+    }
+
     if (isChild) {
         // child process, exit
         exit(r);
     }
+
+    restore_01(storedFd);
+    close(storedFd[0]);
+    close(storedFd[1]);
 }
 
 void readline(char *buf, u_int n) {
@@ -709,9 +720,6 @@ int main(int argc, char **argv) {
 			"                                                                                                             \n\033[0m");
     }
 
-    // store original 0/1 fd
-    store_01(storedFd);
-
     load_command_history(&history);
     init_vars(&variable_set);
     strcpy(cwd, (const char *)env->cwd_name);
@@ -735,9 +743,8 @@ int main(int argc, char **argv) {
             continue;
         }
         char *cmd = process_backticks(buf);
+        DEBUGF("cmd: %s\n", cmd);
         runcmd(cmd);
-        // restore original 0/1 fd
-        restore_01(storedFd);
     }
     return 0;
 }
